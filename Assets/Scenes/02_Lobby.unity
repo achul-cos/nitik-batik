@@ -4080,7 +4080,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 524294809}
-  - component: {fileID: 524294810}
   - component: {fileID: 524294811}
   m_Layer: 0
   m_Name: LobbyManager
@@ -4104,44 +4103,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &524294810
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 524294808}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b733c08bd71f4f46918315370638694, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  nextCustomerButton: {fileID: 0}
-  dialogPanel: {fileID: 1988840831}
-  nameChara: {fileID: 1087564876}
-  charaImage: {fileID: 1450114511}
-  dialogChara: {fileID: 26140517}
-  nextDialog: {fileID: 1401094427}
-  indexDialog: 0
-  _customerQueueSlots:
-  - chair: {fileID: 1088072123}
-    customer: {fileID: 0}
-    customerSprite: {fileID: 0}
-    startPosition: {x: 9.8, y: -3.18, z: 0}
-    endPosition: {x: -1.15, y: -3.18, z: 0}
-    isCustomer: 0
-  - chair: {fileID: 1378791325}
-    customer: {fileID: 0}
-    customerSprite: {fileID: 0}
-    startPosition: {x: 9.8, y: -3.18, z: 0}
-    endPosition: {x: 1.8300002, y: -3.1799998, z: 0}
-    isCustomer: 0
-  - chair: {fileID: 488274539}
-    customer: {fileID: 0}
-    customerSprite: {fileID: 0}
-    startPosition: {x: 9.8, y: -3.18, z: 0}
-    endPosition: {x: 4.7799997, y: -3.1799998, z: 0}
-    isCustomer: 0
 --- !u!114 &524294811
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4156,11 +4117,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tombolAmbilPesanan: {fileID: 781947861}
   tombolSelesaiPesanan: {fileID: 2063858641}
+  dialogPanel: {fileID: 1988840835}
   customerChairs:
   - {fileID: 1088072126}
   - {fileID: 1378791328}
   - {fileID: 488274542}
   customerObjects: []
+  prefabCustomerSlot: {fileID: 0}
   kecepatanGerakCustomer: 3
   jedaAnimasiJalanCustomer: 0.3
   jedaGerakAntarCustomer: 1
@@ -12569,6 +12532,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 144c585de54d0da45b8fd81967c99ed1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  charaImage: {fileID: 1450114511}
+  charaName: {fileID: 1087564876}
+  charaDialog: {fileID: 26140517}
+  tombolLanjut: {fileID: 1401094427}
+  kecepatanKetik: 0.05
 --- !u!1 &2007347172
 GameObject:
   m_ObjectHideFlags: 0

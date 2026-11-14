@@ -445,12 +445,8 @@ public class GameManager : Singleton<GameManager>
             // Jika ada customer, tampilkan dialog
             if (currentCustomer != null)
             {
-                // Trigger event atau langsung panggil UI melalui LobbyUIManager
-                // Karena dialog ditangani di LobbyUIManager, kita bisa memicu event
+                // Dialog ditampilkan oleh Lobby (DialogPanel) yang subscribe ke event ini
                 OnDialogStarted?.Invoke(currentCustomer);
-
-                // Atau bisa langsung memanggil metode di LobbyUIManager jika ada referensi
-                // LobbyUIManager.Instance?.ShowDialog(currentCustomer);
 
                 return true;
             }

@@ -1,10 +1,14 @@
 using System.Collections;
+using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
 
 [RequireComponent(typeof(SpriteRenderer))]
 public class CustomerSlot : MonoBehaviour
 {
+    private const float PpuDiam = 350f;
+    private const float PpuJalan = 220f;
+
     [Header("Setting")]
     public float moveSpeed = 3f;
     public float animationSpeed = 0.25f;
@@ -15,10 +19,28 @@ public class CustomerSlot : MonoBehaviour
     private SpriteRenderer spriteRenderer;
 
     private Coroutine animationCoroutine;
+    private Coroutine gerakCoroutine;
+    private Tween tweenGerak;
+    private Vector3 targetTujuan;
+
+    // Sprite hasil Sprite.Create disimpan supaya tidak dibuat ulang tiap frame animasi, dan dibersihkan saat slot dihancurkan.
+    private readonly Dictionary<(Sprite, float), Sprite> cacheSprite = new();
 
     private void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
+    }
+
+    private void OnDestroy()
+    {
+        tweenGerak?.Kill();
+
+        foreach (Sprite sprite in cacheSprite.Values)
+        {
+            if (sprite != null) Destroy(sprite);
+        }
+
+        cacheSprite.Clear();
     }
 
     #region Setup
@@ -40,11 +62,17 @@ public class CustomerSlot : MonoBehaviour
 
     #region Animation
 
-    void SetSprite(Sprite sprite, float ppu = 350f)
+    void SetSprite(Sprite sprite, float ppu = PpuDiam)
     {
         if (sprite == null) return;
 
-        spriteRenderer.sprite = Sprite.Create(sprite.texture, sprite.rect, sprite.pivot / sprite.rect.size, ppu);
+        if (!cacheSprite.TryGetValue((sprite, ppu), out Sprite hasil) || hasil == null)
+        {
+            hasil = Sprite.Create(sprite.texture, sprite.rect, sprite.pivot / sprite.rect.size, ppu);
+            cacheSprite[(sprite, ppu)] = hasil;
+        }
+
+        spriteRenderer.sprite = hasil;
     }
 
     public void Stand()
@@ -78,15 +106,24 @@ public class CustomerSlot : MonoBehaviour
     {
         spriteRenderer.flipX = flip;
 
+        Sprite[] spriteJalan = Customer.customerWalkSprites;
+
+        // Tanpa sprite jalan, tampilkan sprite berdiri saja.
+        if (spriteJalan == null || spriteJalan.Length == 0)
+        {
+            SetSprite(Customer.customerSprite);
+            yield break;
+        }
+
         int index = 0;
 
         while (true)
         {
-            SetSprite(Customer.customerWalkSprites[index], 220);
+            SetSprite(spriteJalan[index], PpuJalan);
 
             index++;
 
-            if (index >= Customer.customerWalkSprites.Length) index = 0;
+            if (index >= spriteJalan.Length) index = 0;
 
             yield return new WaitForSeconds(animationSpeed);
         }
@@ -112,22 +149,35 @@ public class CustomerSlot : MonoBehaviour
         Move(targetPosition, false);
     }
 
+    /// <summary>
+    /// Berjalan ke posisi target. Jika sedang menuju target lain, gerakan lama dibatalkan dan diganti.
+    /// Jika sudah sampai atau sedang menuju target yang sama, tidak melakukan apa-apa.
+    /// </summary>
     public void Move(Vector3 targetPosition, bool flip = false, float delay = 1.0f)
     {
-        if (Vector3.Distance(transform.position, targetPosition) < 0.01f) return;
+        if (isMoving)
+        {
+            if (Vector3.Distance(targetTujuan, targetPosition) < 0.01f) return;
+        }
+        else if (Vector3.Distance(transform.position, targetPosition) < 0.01f)
+        {
+            return;
+        }
 
-        if (isMoving == true) return;
+        BatalkanGerak();
 
-        StartCoroutine(HandleMove(targetPosition, flip, delay));
+        gerakCoroutine = StartCoroutine(HandleMove(targetPosition, flip, delay));
     }
 
     public IEnumerator HandleMove(Vector3 targetPosition, bool flip, float delay)
     {
         isMoving = true;
+        targetTujuan = targetPosition;
 
         float duration = Vector3.Distance(transform.position, targetPosition) / moveSpeed;
 
-        CustomerManager.Instance.DelaySpawning(duration + 2f + delay);
+        if (CustomerManager.Instance != null)
+            CustomerManager.Instance.DelaySpawning(duration + 2f + delay);
 
         yield return new WaitForSeconds(delay);
 
@@ -135,26 +185,50 @@ public class CustomerSlot : MonoBehaviour
 
         Walk(flip);
 
-        transform.DOMove(targetPosition, duration).SetEase(Ease.Linear).OnComplete(() => { 
-            Sit();
-            isMoving = false;
-        });
-        
+        // Durasi dihitung ulang karena jarak bisa berubah setelah jeda.
+        duration = Vector3.Distance(transform.position, targetPosition) / moveSpeed;
+
+        tweenGerak = transform.DOMove(targetPosition, duration)
+            .SetEase(Ease.Linear)
+            .SetLink(gameObject)
+            .OnComplete(() =>
+            {
+                Sit();
+                isMoving = false;
+                gerakCoroutine = null;
+            });
     }
+
     public void Exit(Vector3 exitPosition)
     {
+        BatalkanGerak();
+
         float duration = Vector3.Distance(transform.position, exitPosition) / moveSpeed;
 
-        CustomerManager.Instance.DelaySpawning(duration + 2f);
+        if (CustomerManager.Instance != null)
+            CustomerManager.Instance.DelaySpawning(duration + 2f);
 
         Stand();
 
         Walk(true);
 
-        transform.DOMove(exitPosition, duration).SetEase(Ease.Linear).OnComplete(() => {
-            Destroy(gameObject);
-            SetCustomer(null);
-        });
+        tweenGerak = transform.DOMove(exitPosition, duration)
+            .SetEase(Ease.Linear)
+            .SetLink(gameObject)
+            .OnComplete(() => Destroy(gameObject));
+    }
+
+    private void BatalkanGerak()
+    {
+        if (gerakCoroutine != null)
+        {
+            StopCoroutine(gerakCoroutine);
+            gerakCoroutine = null;
+        }
+
+        tweenGerak?.Kill();
+        tweenGerak = null;
+        isMoving = false;
     }
 
     #endregion
