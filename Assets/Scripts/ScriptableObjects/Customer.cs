@@ -17,20 +17,13 @@ public class Customer : ScriptableObject
     public string customerName;
 
     // Deskripsi dari customer
-    [TextArea(3, 12)] public string customerDesc = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque sit amet orci venenatis, blandit tellus sed, pretium nisl. Aenean semper, neque in ultricies mattis, quam sapien sodales lectus, sit amet sodales tellus tortor ac est.";
+    [TextArea(3, 12)] public string customerDesc;
 
     // Dialog secara utuh dari customer
     public string customerDialog;
 
     // List dialog dari customer
-    public List<string> customerDialogList = new List<string>()
-    {
-        "Ini adalah contoh dari baris pertama dari dialog",
-        "Selanjutnya ini adalah baris kedua dari dialog karakter ini",
-        "Ketigalah ini baris dialog sekarang",
-        "Empat adalah baris dialog yang biasanya menjadi sebelum dialog penutup",
-        "Dan ini baris terakhir dari dialog placehoder dan ini baris kelima."
-    };
+    public List<string> customerDialogList = new List<string>();
 
     // foto potrait dari customer
     [ShowAssetPreview(1024, 1024)] public Texture2D customerImage;

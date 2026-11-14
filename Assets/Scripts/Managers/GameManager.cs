@@ -98,9 +98,11 @@ public class GameManager : Singleton<GameManager>
     {
         if (_phasesConfigDatabase == null)
         {
+            // Tanpa database, game tidak punya data fase/hari. Buat database kosong agar tidak null-reference,
+            // tetapi beri error yang jelas: isi field "Phases Config Database" pada GameManager di scene 00_MainMenu.
+            Debug.LogError("GameManager : PhasesConfigDatabase belum diisi di Inspector. Game tidak punya data fase dan hari.");
             _phasesConfigDatabase = ScriptableObject.CreateInstance<PhasesConfigDatabase>();
-            _phasesConfigDatabase.phaseConfigs = PhasesConfigDefault.phaseConfigs;
-            Debug.LogWarning("GameManager : PhasesConfigDatabase dibuat secara default.");
+            _phasesConfigDatabase.phaseConfigs = new PhaseConfig[0];
         }
     }
 
@@ -108,8 +110,6 @@ public class GameManager : Singleton<GameManager>
     {
         if (SaveManager.Instance.HasSaveNew())
             LoadGameDataNew();
-        else if (SaveManager.Instance.HasSaveLegacy())
-            LoadGameDataLegacy();
         else
             InitializeNewGame();
     }
@@ -126,30 +126,6 @@ public class GameManager : Singleton<GameManager>
         _currentSaveData = SaveManager.Instance.CreateNewSave(_phasesConfigDatabase.phaseConfigs);
 
         Debug.Log($"GameManager : Game baru dimulai pada Phase {_currentPhase}, Day {_currentDay}, Balance {_currentBalance}");
-    }
-
-    private void LoadGameDataLegacy()
-    {
-        SaveData saveData = SaveManager.Instance.LoadGame();
-        if (saveData != null)
-        {
-            _currentPhase = saveData.phase;
-            _currentDay = saveData.day;
-            _currentBalance = saveData.balance;
-            _isGameOver = false;
-            _isPaused = false;
-
-            // Konversi legacy ke new? Kita bisa buat SaveDataNew dari data legacy jika diperlukan
-            // Untuk saat ini, kita tetap gunakan legacy, tapi kita set _currentSaveData = null
-            _currentSaveData = null;
-
-            Debug.Log($"GameManager : Load legacy sukses. Phase {_currentPhase}, Day {_currentDay}, Balance {_currentBalance}");
-        }
-        else
-        {
-            Debug.LogWarning("GameManager : Gagal load legacy, memulai game baru.");
-            InitializeNewGame();
-        }
     }
 
     public void LoadGameDataNew()
@@ -472,7 +448,7 @@ public class GameManager : Singleton<GameManager>
     {
         int nextPhase = _currentPhase + 1;
         if (nextPhase <= GetTotalPhase())
-            return _phasesConfigDatabase?.phaseConfigs[nextPhase - 1];
+            return _phasesConfigDatabase.GetPhaseConfigByPhase(nextPhase);
         return null;
     }
 
@@ -490,30 +466,11 @@ public class GameManager : Singleton<GameManager>
     // Perhitungan Internal
     // ======================================================
 
-    private int GetTotalPhase() => _phasesConfigDatabase?.phaseConfigs.Length ?? 0;
+    private int GetTotalPhase() => _phasesConfigDatabase.GetPhaseLength();
 
-    private int GetTotalDay()
-    {
-        if (_phasesConfigDatabase == null) return 0;
-        int total = 0;
-        foreach (var phase in _phasesConfigDatabase.phaseConfigs)
-            total += phase.phaseDay.Length;
-        return total;
-    }
+    private int GetTotalDay() => _phasesConfigDatabase.GetDayLength();
 
-    private int GetPhaseStartDay(int phaseIndex)
-    {
-        if (_phasesConfigDatabase == null) return 1;
-        int start = 1;
-        for (int i = 0; i < phaseIndex - 1; i++)
-            start += _phasesConfigDatabase.phaseConfigs[i].phaseDay.Length;
-        return start;
-    }
+    private int GetPhaseStartDay(int phase) => Mathf.Max(1, _phasesConfigDatabase.GetPhaseStartDay(phase));
 
-    private int GetPhaseEndDay(int phaseIndex)
-    {
-        return GetPhaseStartDay(phaseIndex) + _phasesConfigDatabase.phaseConfigs[phaseIndex - 1].phaseDay.Length - 1;
-    }
-
-    private bool IsPhaseEnd() => _currentDay > GetPhaseEndDay(_currentPhase);
+    private bool IsPhaseEnd() => _currentDay > _phasesConfigDatabase.GetPhaseEndDay(_currentPhase);
 }

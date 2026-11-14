@@ -248,31 +248,6 @@ public class CustomerManager : Singleton<CustomerManager>
     }
 
     /// <summary>
-    /// Fungsi Legacy
-    /// 
-    /// Mengambil Customer paling awal didalam antrian untuk dilayani
-    /// </summary>
-    /// <returns>Customer yang paling depan antrianya</returns>
-    public Customer GetNextCustomerLegacy()
-    {
-        // Validasi bahwa antrian customer kosong atau tidak
-        // Jika kosong maka berikan log warning bahwa kosong
-        if (_customerQueue.Count == 0)
-        {
-            // Monitoring console log, bahwa antrian customer itu kosong
-            Debug.LogWarning($"CustomerManager [GetNextCustomer] : Tidak dapat memberikan customer pada customer queue, karena antrian customer kosong atau {_customerQueue.Count}.");
-
-            return null;
-        }
-
-        // Keluarkan customer pada antrian yang paling depan, dan menjadi customer yang sekarang dilayani
-        _customerCurrent = _customerQueue.Dequeue();
-
-        // Berikan objek data customer _customercurrent sebagai customer yang dilayani
-        return _customerCurrent;
-    }
-
-    /// <summary>
     /// Menyelesaikan sesi pesan memesan currentCustomer, dan mengosongkan slot dari _currentCustomer
     /// </summary>
     public void FinishCurrentCustomer()
@@ -289,39 +264,6 @@ public class CustomerManager : Singleton<CustomerManager>
             // Mengeluarkan customer pada antrian yang paling depan
             _customerQueue.Dequeue();
 
-            // Menambahkan jumlah customer yang telah dilayani pada hari ini
-            _customerServedToday++;
-
-            // Trigger publsher customer arrived bahwa customer current telah selesai dilayani dan memberikan data customer yang telah dilayani
-            CustomerServed?.Invoke(_customerCurrent);
-
-            // Monitoring console log, memberitahukan bahwa customer current telah dilayani serta jumlah customer yang telah dilayani
-            Debug.Log($"CustomerManager : Telah selesai melayani customer dengan nama id {_customerCurrent.customerId} dan nama yaitu {_customerCurrent.customerName}, dengan jumlah sementara pelanggan yang telah dilayani yaitu {_customerServedToday}");
-
-            // Menghapus slot currentCustomer
-            _customerCurrent = null;
-
-            // Menghapus kain
-            curretChooseFabric = null;
-        }
-    }
-
-    /// <summary>
-    /// Fungsi Legacy
-    /// 
-    /// Menyelesaikan sesi pesan memesan currentCustomer, dan mengosongkan slot dari _currentCustomer
-    /// </summary>
-    public void FinishCurrentCustomerLegacy()
-    {
-        // Validasi jika customer current bernilai null,
-        // maka berikan log warning belum ada current customer yang dapat diselesaikan
-        if (_customerCurrent == null)
-        {
-            Debug.LogWarning("CustomerManager [FinishCurrentCustomer] : Tidak dapat menyelesaikan seni pesan memesan dengan current customer karena memang belum ada");
-        }
-
-        else if (_customerCurrent != null)
-        {
             // Menambahkan jumlah customer yang telah dilayani pada hari ini
             _customerServedToday++;
 
@@ -455,21 +397,14 @@ public class CustomerManager : Singleton<CustomerManager>
             return;
         }
 
-        // Untuk mengenerat sebuah customer, maka mula-mula kita bisa mengenrate tipe wealth dan perfect customer
-        // Menggunakan fungsi pada customer database, serta dengan parameter DayConfig yang kita ambil
-        Customer customerRandom = _customerDatabase.GetCustomerRandomByWealthAndPerfectType(
-            _customerDatabase.GetCustomerWealthAndPerfectTypeRandom(
-                customerWealthMiskinChance: _currentDayConfig.dayWealthCustomersChances.FirstOrDefault(x => x.wealthType == WealthType.MISKIN)?.wealthChance ?? 0f,
-                customerWealthBiasaChance: _currentDayConfig.dayWealthCustomersChances.FirstOrDefault(x => x.wealthType == WealthType.BIASA)?.wealthChance ?? 0f,
-                // customerWealthKayaChance: _currentDayConfig.dayWealthCustomersChances.FirstOrDefault(x => x.wealthType == WealthType.KAYA)?.wealthChance ?? 0f,
-                customerWealthSultanChance: _currentDayConfig.dayWealthCustomersChances.FirstOrDefault(x => x.wealthType == WealthType.SULTAN)?.wealthChance ?? 0f,
-                customerPerfectDChance: _currentDayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.D)?.perfectChance ?? 0f,
-                customerPerfectCChance: _currentDayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.C)?.perfectChance ?? 0f,
-                customerPerfectBChance: _currentDayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.B)?.perfectChance ?? 0f,
-                customerPerfectAChance: _currentDayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.A)?.perfectChance ?? 0f,
-                customerPerfectSChance: _currentDayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.S)?.perfectChance ?? 0f
-            )
-        );
+        // Customer diacak oleh database berdasarkan peluang kekayaan dan perfeksionis pada DayConfig hari ini
+        Customer customerRandom = _customerDatabase.AmbilCustomerAcak(_currentDayConfig);
+
+        if (customerRandom == null)
+        {
+            StopSpawning();
+            return;
+        }
 
         // Selanjutnya customerRandom yang didapatkan, kita set menjadi currentCustomer
         // Karena AddCustomerToQueue memberikan return bool, jadi kita dapat mengetahui

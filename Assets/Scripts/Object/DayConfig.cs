@@ -54,6 +54,36 @@ public class DayConfig
 
     public float firstCustomerSpawn = 3.0f;
 
+    /// <summary>
+    /// Bobot kedatangan customer dengan tipe kekayaan tertentu pada hari ini (0 jika tidak diatur).
+    /// </summary>
+    public float GetWealthChance(WealthType wealthType)
+    {
+        if (dayWealthCustomersChances == null) return 0f;
+
+        foreach (WealthCustomerChance chance in dayWealthCustomersChances)
+        {
+            if (chance != null && chance.wealthType == wealthType) return chance.wealthChance;
+        }
+
+        return 0f;
+    }
+
+    /// <summary>
+    /// Bobot kedatangan customer dengan tipe perfeksionis tertentu pada hari ini (0 jika tidak diatur).
+    /// </summary>
+    public float GetPerfectChance(PerfectType perfectType)
+    {
+        if (dayPerfectCustomerChances == null) return 0f;
+
+        foreach (PerfectCustomerChance chance in dayPerfectCustomerChances)
+        {
+            if (chance != null && chance.perfectType == perfectType) return chance.perfectChance;
+        }
+
+        return 0f;
+    }
+
     public override string ToString()
     {
         StringBuilder sb = new StringBuilder();

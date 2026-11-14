@@ -3,12 +3,8 @@ using System.IO;
 using UnityEngine;
 
 /// <summary>
-/// SaveManager menangani semua operasi penyimpanan dan pemuatan data game menggunakan JSON.
-/// Data disimpan di <see cref="Application.persistentDataPath"/> dengan dua format berbeda:
-/// <list type="bullet">
-///     <item><description>Format lama (<see cref="SaveData"/>) - digunakan oleh metode <see cref="SaveGame"/> dan <see cref="LoadGame"/>.</description></item>
-///     <item><description>Format baru (<see cref="SaveDataNew"/>) - digunakan oleh metode <see cref="SaveGameNew"/> dan <see cref="LoadGameNew"/>.</description></item>
-/// </list>
+/// SaveManager menangani penyimpanan dan pemuatan data game (<see cref="SaveDataNew"/>) dalam format JSON
+/// di <see cref="Application.persistentDataPath"/>.
 /// Penulisan dilakukan secara atomik (file sementara lalu diganti) dan file sebelumnya disimpan sebagai cadangan (.bak),
 /// sehingga crash saat menyimpan tidak merusak save yang ada.
 /// </summary>
@@ -18,12 +14,10 @@ public class SaveManager : Singleton<SaveManager>
     // Konfigurasi file
     // ======================================================
 
-    private const string SAVE_FILE_NAME_LEGACY = "aksara_batik_save.json";
-    private const string SAVE_FILE_NAME_NEW = "aksara_batik_save_new.json";
+    private const string SAVE_FILE_NAME = "aksara_batik_save_new.json";
     private const string BACKUP_EXTENSION = ".bak";
     private const string TEMP_EXTENSION = ".tmp";
 
-    private string _savePathLegacy;
     private string _savePathNew;
 
     // ======================================================
@@ -36,11 +30,9 @@ public class SaveManager : Singleton<SaveManager>
     {
         base.Awake();
 
-        _savePathLegacy = Path.Combine(Application.persistentDataPath, SAVE_FILE_NAME_LEGACY);
-        _savePathNew = Path.Combine(Application.persistentDataPath, SAVE_FILE_NAME_NEW);
+        _savePathNew = Path.Combine(Application.persistentDataPath, SAVE_FILE_NAME);
 
-        Debug.Log($"SaveManager : Lokasi save legacy: {_savePathLegacy}");
-        Debug.Log($"SaveManager : Lokasi save new    : {_savePathNew}");
+        Debug.Log($"SaveManager : Lokasi save: {_savePathNew}");
     }
 
     // ======================================================
@@ -99,60 +91,7 @@ public class SaveManager : Singleton<SaveManager>
     }
 
     // ======================================================
-    // Metode untuk format lama (Legacy)
-    // ======================================================
-
-    public bool HasSaveLegacy() => File.Exists(_savePathLegacy);
-
-    public void SaveGame(int currentPhase, int currentDay, long currentBalance)
-    {
-        SaveData data = new SaveData
-        {
-            phase = currentPhase,
-            day = currentDay,
-            balance = currentBalance,
-            timeStamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
-        };
-
-        string json = JsonUtility.ToJson(data, prettyPrint: true);
-
-        try
-        {
-            TulisAtomik(_savePathLegacy, json);
-            Debug.Log($"SaveManager : Save legacy berhasil (Phase {currentPhase}, Day {currentDay}, Balance {currentBalance})");
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"SaveManager [SaveGame] : Gagal menyimpan save legacy. Error: {e.Message}");
-        }
-    }
-
-    public SaveData LoadGame()
-    {
-        if (!HasSaveLegacy())
-        {
-            Debug.LogWarning("SaveManager [LoadGame] : Tidak ada save legacy.");
-            return null;
-        }
-
-        SaveData saveData = BacaDenganCadangan<SaveData>(_savePathLegacy, "save legacy");
-
-        if (saveData != null)
-            Debug.Log($"SaveManager : Load legacy sukses (Phase {saveData.phase}, Day {saveData.day}, Balance {saveData.balance})");
-
-        return saveData;
-    }
-
-    public SaveData GetGameData() => LoadGame();
-
-    public void DeleteSaveLegacy()
-    {
-        HapusFile(_savePathLegacy);
-        Debug.Log("SaveManager : Save legacy berhasil dihapus.");
-    }
-
-    // ======================================================
-    // Metode untuk format baru (SaveDataNew)
+    // Save game (SaveDataNew)
     // ======================================================
 
     public bool HasSaveNew() => File.Exists(_savePathNew);
@@ -205,17 +144,8 @@ public class SaveManager : Singleton<SaveManager>
     }
 
     // ======================================================
-    // Metode utilitas umum
+    // Utilitas
     // ======================================================
-
-    public bool HasAnySave() => HasSaveLegacy() || HasSaveNew();
-
-    public void DeleteAllSaves()
-    {
-        DeleteSaveLegacy();
-        DeleteSaveNew();
-        Debug.Log("SaveManager : Semua file save telah dihapus.");
-    }
 
     /// <summary>
     /// Menghapus file save beserta cadangan dan file sementaranya.
@@ -227,14 +157,4 @@ public class SaveManager : Singleton<SaveManager>
             if (File.Exists(target)) File.Delete(target);
         }
     }
-
-    // ======================================================
-    // Metode kompatibilitas (opsional)
-    // ======================================================
-
-    [Obsolete("Gunakan HasSaveLegacy() atau HasAnySave().")]
-    public bool HasSave() => HasSaveLegacy();
-
-    [Obsolete("Gunakan DeleteSaveLegacy().")]
-    public void DeleteSave() => DeleteSaveLegacy();
 }
