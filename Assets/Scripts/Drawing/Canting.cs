@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -13,20 +11,22 @@ public class Canting : MonoBehaviour, IPointerClickHandler
 
     public Vector2 CantingOffset = new Vector2(-500f, -200f);
 
+    private DrawingManager _drawingManager;
+
     public void Start()
     {
         ujungCanting = transform.GetComponentInChildren<Transform>();
 
         originalPosition = transform.localPosition;
+
+        _drawingManager = FindAnyObjectByType<DrawingManager>();
     }
 
     public void OnPointerClick(PointerEventData pointerEventData)
     {
-        DrawingManager manager = FindAnyObjectByType<DrawingManager>();
-
-        if (manager != null)
+        if (_drawingManager != null)
         {
-            manager.SetCanting(this);
+            _drawingManager.SetCanting(this);
         }
     }
 }

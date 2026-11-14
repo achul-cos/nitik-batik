@@ -75,6 +75,18 @@ public class AudioManager : Singleton<AudioManager>
         }
     }
 
+    /// <summary>
+    /// Nilai slider musik (0-1) apa adanya, tanpa dikali master. Dipakai untuk menampilkan slider di UI.
+    /// <see cref="MusicVolume"/> adalah volume efektif (sudah dikali master).
+    /// </summary>
+    public float MusicVolumeSetting => _musicVolume;
+
+    /// <summary>
+    /// Nilai slider SFX (0-1) apa adanya, tanpa dikali master. Dipakai untuk menampilkan slider di UI.
+    /// <see cref="SfxVolume"/> adalah volume efektif (sudah dikali master).
+    /// </summary>
+    public float SfxVolumeSetting => _sfxVolume;
+
     public AudioSource MusicSource => _musicSource;
 
     public AudioSource SFXSource => _sfxSource;

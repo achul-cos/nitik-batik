@@ -314,11 +314,17 @@ public class CustomerManager : Singleton<CustomerManager>
             return null;
         }
 
-        // Buat local variabel list dari customerQueue yang diconver menjadi lis
-        Customer[] customerArray = _customerQueue.ToArray();
+        // Menelusuri antrian sampai index yang diminta (tanpa membuat salinan array di setiap pemanggilan)
+        int posisi = 0;
 
-        // Mengembalikan data customer pada index didalam array
-        return customerArray[index];
+        foreach (Customer customer in _customerQueue)
+        {
+            if (posisi == index) return customer;
+
+            posisi++;
+        }
+
+        return null;
     }
 
     // ====================================================== //

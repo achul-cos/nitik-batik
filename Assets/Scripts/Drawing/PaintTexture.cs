@@ -1,8 +1,14 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Texture tempat pemain menggambar. Piksel ditulis ke buffer lalu diunggah ke texture sekali per goresan.
+/// Titik-titik di antara dua posisi mouse diisi agar garis tidak putus saat mouse digerakkan cepat.
+/// </summary>
 public class PaintTexture : MonoBehaviour
 {
+    private static readonly Color32 WarnaLatar = new Color32(255, 238, 229, 255);
+
     [Header("Brush")]
     [SerializeField] private Color brushColor = Color.black;
 
@@ -14,8 +20,16 @@ public class PaintTexture : MonoBehaviour
 
     private RawImage targetImage;
 
+    private Color32[] _buffer;
+    private Color32 _warnaKuas;
+
     private int width;
     private int height;
+
+    // Titik terakhir pada goresan yang sedang berjalan (untuk menyambung garis)
+    private bool _adaTitikSebelumnya;
+    private int _terakhirX;
+    private int _terakhirY;
 
     public void Initialize(RawImage image, int textureWidth, int textureHeight)
     {
@@ -23,6 +37,9 @@ public class PaintTexture : MonoBehaviour
 
         width = textureWidth;
         height = textureHeight;
+
+        _warnaKuas = brushColor;
+        _buffer = new Color32[width * height];
 
         drawingTexture = new Texture2D(width, height, TextureFormat.RGBA32, false);
 
@@ -33,17 +50,23 @@ public class PaintTexture : MonoBehaviour
 
     public void Clear()
     {
-        Color32 background = new Color32(255, 238, 229, 255);
-
-        Color[] colors = new Color[width * height];
-
-        for (int i = 0; i < colors.Length; i++)
+        for (int i = 0; i < _buffer.Length; i++)
         {
-            colors[i] = background;
+            _buffer[i] = WarnaLatar;
         }
 
-        drawingTexture.SetPixels(colors);
+        drawingTexture.SetPixels32(_buffer);
         drawingTexture.Apply();
+
+        _adaTitikSebelumnya = false;
+    }
+
+    /// <summary>
+    /// Dipanggil saat mouse dilepas, supaya goresan berikutnya tidak tersambung ke goresan sebelumnya.
+    /// </summary>
+    public void AngkatKuas()
+    {
+        _adaTitikSebelumnya = false;
     }
 
     public void PaintNormalized(float x, float y)
@@ -51,9 +74,36 @@ public class PaintTexture : MonoBehaviour
         int pixelX = Mathf.RoundToInt(x * width);
         int pixelY = Mathf.RoundToInt(y * height);
 
-        DrawCircle(pixelX, pixelY);
+        if (_adaTitikSebelumnya)
+        {
+            LukisGaris(_terakhirX, _terakhirY, pixelX, pixelY);
+        }
+        else
+        {
+            DrawCircle(pixelX, pixelY);
+        }
 
+        _terakhirX = pixelX;
+        _terakhirY = pixelY;
+        _adaTitikSebelumnya = true;
+
+        drawingTexture.SetPixels32(_buffer);
         drawingTexture.Apply();
+    }
+
+    // Melukis lingkaran di sepanjang garis dari titik awal ke titik akhir, berjarak setengah radius.
+    private void LukisGaris(int awalX, int awalY, int akhirX, int akhirY)
+    {
+        float jarak = Vector2.Distance(new Vector2(awalX, awalY), new Vector2(akhirX, akhirY));
+
+        int langkah = Mathf.Max(1, Mathf.CeilToInt(jarak / Mathf.Max(1f, brushRadius * 0.5f)));
+
+        for (int i = 1; i <= langkah; i++)
+        {
+            float t = (float)i / langkah;
+
+            DrawCircle(Mathf.RoundToInt(Mathf.Lerp(awalX, akhirX, t)), Mathf.RoundToInt(Mathf.Lerp(awalY, akhirY, t)));
+        }
     }
 
     private void DrawCircle(int centerX, int centerY)
@@ -71,7 +121,7 @@ public class PaintTexture : MonoBehaviour
 
                 if (py < 0 || py >= height) continue;
 
-                drawingTexture.SetPixel(px, py, brushColor);
+                _buffer[py * width + px] = _warnaKuas;
 
                 patternEvaluator.CheckPixel(px, py);
             }

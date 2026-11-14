@@ -75,13 +75,8 @@ public class GameplayUIManager : MonoBehaviour
     [SerializeField] private Button _quitButtonPauseMenuSubPanel;
     [Space]
 
+    // Slider volume ditangani komponen PengaturanAudio yang dipasang pada panel ini
     [SerializeField] private GameObject _pauseSettingSubPanel;
-    [SerializeField] private Slider _masterVolumeSlider;
-    [SerializeField] private TextMeshProUGUI _masterVolumeLabel;
-    [SerializeField] private Slider _sfxVolumeSlider;
-    [SerializeField] private TextMeshProUGUI _sfxVolumeLabel;
-    [SerializeField] private Slider _musicVolumeSlider;
-    [SerializeField] private TextMeshProUGUI _musicVolumeLabel;
     [SerializeField] private Button _resumeButtonPauseSettingSubPanel;
     [SerializeField] private Button _backButtonPauseSettingSubPanel;
 
@@ -165,8 +160,6 @@ public class GameplayUIManager : MonoBehaviour
         _debugSubPanel?.SetActive(false);
         _pausePanel?.SetActive(false);
 
-        if (AudioManager.Instance) InitializedVolumeSlider();
-
         InitializedAddListener();
     }
 
@@ -220,22 +213,6 @@ public class GameplayUIManager : MonoBehaviour
         GameManager.Instance.Resume();
     }
 
-    private void InitializedVolumeSlider()
-    {
-        if (_masterVolumeSlider) _masterVolumeSlider.value = AudioManager.Instance.MasterVolume;
-        if (_masterVolumeLabel) _masterVolumeLabel.text = $"{Mathf.FloorToInt(AudioManager.Instance.MasterVolume * 100f)}%";
-
-        if (_sfxVolumeSlider) _sfxVolumeSlider.value = AudioManager.Instance.SfxVolume;
-        if (_sfxVolumeLabel) _sfxVolumeLabel.text = $"{Mathf.FloorToInt(AudioManager.Instance.SfxVolume * 100f)}%";
-
-        if (_musicVolumeSlider) _musicVolumeSlider.value = AudioManager.Instance.MusicVolume;
-        if (_musicVolumeLabel) _musicVolumeLabel.text = $"{Mathf.FloorToInt(AudioManager.Instance.MusicVolume * 100f)}%";
-
-        if (_masterVolumeSlider) _masterVolumeSlider.onValueChanged.AddListener(OnValueChangeMasterVolume);
-        if (_sfxVolumeSlider) _sfxVolumeSlider.onValueChanged.AddListener(OnValueChangeSFXVolume);
-        if (_musicVolumeSlider) _musicVolumeSlider.onValueChanged.AddListener(OnValueChangeMusicVolume);
-    }
-
     private void LoadPauseSettingSubPanel()
     {
         AnimationManager.Instance.FadeIn(_pauseSettingSubPanel);
@@ -254,27 +231,6 @@ public class GameplayUIManager : MonoBehaviour
     private void UnloadPauseMenuSubPanel()
     {
         AnimationManager.Instance.FadeOut(_pauseMenuSubPanel);
-    }
-
-    private void OnValueChangeMasterVolume(float currentvalue)
-    {
-        AudioManager.Instance.MasterVolume = currentvalue;
-
-        if (_masterVolumeLabel) _masterVolumeLabel.text = $"{Mathf.FloorToInt(AudioManager.Instance.MasterVolume * 100f)}%";
-    }
-
-    private void OnValueChangeSFXVolume(float currentvalue)
-    {
-        AudioManager.Instance.SfxVolume = currentvalue;
-
-        if (_sfxVolumeLabel) _sfxVolumeLabel.text = $"{Mathf.FloorToInt(AudioManager.Instance.SfxVolume * 100f)}%";
-    }
-
-    private void OnValueChangeMusicVolume(float currentvalue)
-    {
-        AudioManager.Instance.MusicVolume = currentvalue;
-
-        if (_musicVolumeLabel) _musicVolumeLabel.text = $"{Mathf.FloorToInt(AudioManager.Instance.MusicVolume * 100f)}%";
     }
 
     private void OnClickResumeButton()

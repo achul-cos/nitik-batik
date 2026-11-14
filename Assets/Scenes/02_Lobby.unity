@@ -9432,6 +9432,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1446817559}
   - component: {fileID: 1446817560}
+  - component: {fileID: 1446817561}
   m_Layer: 5
   m_Name: SettingSubPanel
   m_TagString: Untagged
@@ -9477,6 +9478,24 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1446817558}
   m_CullTransparentMesh: 1
+--- !u!114 &1446817561
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1446817558}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dff9d03baeb07f1408492d4c79b2a7de, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _sliderMaster: {fileID: 614581522}
+  _labelMaster: {fileID: 1354829634}
+  _sliderMusik: {fileID: 1089626758}
+  _labelMusik: {fileID: 1971548319}
+  _sliderSfx: {fileID: 1879585037}
+  _labelSfx: {fileID: 1638321514}
 --- !u!1 &1450114509
 GameObject:
   m_ObjectHideFlags: 0
@@ -11299,12 +11318,6 @@ MonoBehaviour:
   _settingButtonPauseMenuSubPanel: {fileID: 590900019}
   _quitButtonPauseMenuSubPanel: {fileID: 1929623084}
   _pauseSettingSubPanel: {fileID: 1446817558}
-  _masterVolumeSlider: {fileID: 614581522}
-  _masterVolumeLabel: {fileID: 1354829634}
-  _sfxVolumeSlider: {fileID: 1879585037}
-  _sfxVolumeLabel: {fileID: 1638321514}
-  _musicVolumeSlider: {fileID: 1089626758}
-  _musicVolumeLabel: {fileID: 1971548319}
   _resumeButtonPauseSettingSubPanel: {fileID: 1225086288}
   _backButtonPauseSettingSubPanel: {fileID: 1091516024}
 --- !u!1 &1857593121

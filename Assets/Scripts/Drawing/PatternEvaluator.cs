@@ -1,39 +1,54 @@
-using System.Collections;
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Menilai seberapa tepat goresan pemain mengikuti pola batik.
+/// Pola dibaca sekali menjadi mask; setiap piksel yang dicat dicocokkan dengan mask itu.
+/// Tampilan progres hanya diperbarui sekali per frame, bukan per piksel.
+/// </summary>
 public class PatternEvaluator : MonoBehaviour
 {
+    // Piksel pola dianggap "perlu dicat" jika alpha-nya di atas 0,1 (26 dari 255).
+    private const byte AmbangAlphaPola = 25;
+
     [SerializeField] private Texture2D patternTexture;
     [SerializeField] private Slider progressBar;
     [SerializeField] private Slider mistakeBar;
     [SerializeField] private Button NextButton;
 
-    private bool[,] coveredPixel;
-    private bool[,] wrongPixel;
+    private int _lebar;
+    private int _tinggi;
+
+    private bool[] _maskPola;
+    private bool[] _sudahTertutup;
+    private bool[] _sudahSalah;
+
+    private TextMeshProUGUI _labelProgress;
+    private bool _perluPerbaruiTampilan;
 
     public int totalPatternPixel;
     public int coveredPatternPixel;
     public int mistakePixel;
-        
+
     private void Start()
     {
-        int width = patternTexture.width;
-        int height = patternTexture.height;
+        _lebar = patternTexture.width;
+        _tinggi = patternTexture.height;
 
-        coveredPixel = new bool[width, height];
-        wrongPixel = new bool[width, height];
+        // GetPixels32 mengambil seluruh piksel sekaligus (urutan: baris demi baris dari bawah), jauh lebih cepat dari GetPixel per piksel.
+        Color32[] piksel = patternTexture.GetPixels32();
 
-        for (int x = 0; x < width; x++)
+        _maskPola = new bool[piksel.Length];
+        _sudahTertutup = new bool[piksel.Length];
+        _sudahSalah = new bool[piksel.Length];
+
+        for (int i = 0; i < piksel.Length; i++)
         {
-            for (int y = 0; y < height; y++)
+            if (piksel[i].a > AmbangAlphaPola)
             {
-                if (patternTexture.GetPixel(x, y).a > 0.1f)
-                {
-                    totalPatternPixel++;
-                }
+                _maskPola[i] = true;
+                totalPatternPixel++;
             }
         }
 
@@ -41,75 +56,85 @@ public class PatternEvaluator : MonoBehaviour
         {
             progressBar.value = 0;
 
-            TextMeshProUGUI progressBarLabel = progressBar.GetComponentInChildren<TextMeshProUGUI>();
+            _labelProgress = progressBar.GetComponentInChildren<TextMeshProUGUI>();
+            if (_labelProgress != null) _labelProgress.text = "0%";
+        }
 
-            progressBarLabel.text = "0%";
-        } 
         if (mistakeBar != null)
         {
             mistakeBar.value = 0;
 
-            TextMeshProUGUI mistakeBarLabel = mistakeBar.GetComponentInChildren<TextMeshProUGUI>();
-
-            mistakeBarLabel.text = "0%";
+            TextMeshProUGUI labelMistake = mistakeBar.GetComponentInChildren<TextMeshProUGUI>();
+            if (labelMistake != null) labelMistake.text = "0%";
         }
 
         if (NextButton != null) NextButton.gameObject.SetActive(false);
     }
 
+    private void LateUpdate()
+    {
+        if (!_perluPerbaruiTampilan) return;
+
+        _perluPerbaruiTampilan = false;
+        PerbaruiTampilan();
+    }
+
     public void CheckPixel(int x, int y)
     {
-        int width = patternTexture.width;
-        int height = patternTexture.height;
-
-        // Ignore pixel di luar texture
-        if (x < 0 || x >= width || y < 0 || y >= height)
+        // Abaikan piksel di luar texture
+        if (x < 0 || x >= _lebar || y < 0 || y >= _tinggi)
         {
             return;
         }
 
-        Color pattern = patternTexture.GetPixel(x, y);
+        int index = y * _lebar + x;
 
-        if (pattern.a > 0.1f)
+        if (_maskPola[index])
         {
-            if (!coveredPixel[x, y])
+            if (!_sudahTertutup[index])
             {
-                coveredPixel[x, y] = true;
+                _sudahTertutup[index] = true;
                 coveredPatternPixel++;
+                _perluPerbaruiTampilan = true;
             }
         }
         else
         {
-            if (!wrongPixel[x, y])
+            if (!_sudahSalah[index])
             {
-                wrongPixel[x, y] = true;
+                _sudahSalah[index] = true;
                 mistakePixel++;
+                _perluPerbaruiTampilan = true;
             }
         }
-
-        UpdateProgress();
     }
 
-    private void UpdateProgress()
+    private void PerbaruiTampilan()
     {
+        float coverage = GetCoverage();
+
         if (progressBar != null)
         {
-            progressBar.value = GetCoverage();
-            
-            TextMeshProUGUI progressBarLabel = progressBar.GetComponentInChildren<TextMeshProUGUI>();
+            progressBar.value = coverage;
 
-            progressBarLabel.text = $"{Mathf.RoundToInt(GetCoverage()*100)}%";
+            if (_labelProgress != null) _labelProgress.text = $"{Mathf.RoundToInt(coverage * 100)}%";
         }
-        if (mistakeBar != null) mistakeBar.value = Mathf.Clamp01(((float)(mistakePixel - coveredPatternPixel) / totalPatternPixel));
 
-        if (GetCoverage() >= 0.7f)
-        {   
+        if (mistakeBar != null && totalPatternPixel > 0)
+        {
+            mistakeBar.value = Mathf.Clamp01((float)(mistakePixel - coveredPatternPixel) / totalPatternPixel);
+        }
+
+        if (coverage >= 0.7f)
+        {
             if (NextButton != null) NextButton.gameObject.SetActive(true);
         }
     }
 
     public float GetCoverage()
     {
+        if (totalPatternPixel <= 0) return 0f;
+
         return Mathf.Clamp01(((float)coveredPatternPixel / totalPatternPixel) * 1.2f);
     }
 
@@ -120,16 +145,12 @@ public class PatternEvaluator : MonoBehaviour
 
     public float GetScore()
     {
-        float coverage =
-            (float)coveredPatternPixel /
-            totalPatternPixel;
+        if (totalPatternPixel <= 0) return 0f;
 
-        float penalty =
-            (float)mistakePixel /
-            totalPatternPixel;
+        float coverage = (float)coveredPatternPixel / totalPatternPixel;
 
-        return Mathf.Clamp01(
-            coverage - penalty
-        );
+        float penalty = (float)mistakePixel / totalPatternPixel;
+
+        return Mathf.Clamp01(coverage - penalty);
     }
 }

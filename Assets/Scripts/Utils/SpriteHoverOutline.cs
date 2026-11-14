@@ -63,12 +63,15 @@ public class SpriteHoverOutline : MonoBehaviour
 
     private void Start()
     {
-        SpriteRenderer sr = gameObject.GetComponent<SpriteRenderer>() ?? gameObject.AddComponent<SpriteRenderer>();
-        sr.material = materialOutline;
-        BoxCollider2D cl = gameObject.GetComponent<BoxCollider2D>() ?? gameObject.AddComponent<BoxCollider2D>();
-        cl.isTrigger = true;
-        cl.size = sr.sprite.bounds.size;
+        // [RequireComponent] menjamin SpriteRenderer dan BoxCollider2D sudah ada.
+        // sharedMaterial dipakai (bukan material) agar tidak membuat salinan material untuk setiap sprite;
+        // nilai outline per sprite sudah diatur lewat MaterialPropertyBlock.
+        if (materialOutline != null) spriteRenderer.sharedMaterial = materialOutline;
 
+        BoxCollider2D cl = GetComponent<BoxCollider2D>();
+        cl.isTrigger = true;
+
+        if (spriteRenderer.sprite != null) cl.size = spriteRenderer.sprite.bounds.size;
     }
 
     private void OnMouseEnter()

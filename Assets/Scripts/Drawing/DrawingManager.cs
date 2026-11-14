@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Security.Cryptography;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,8 +10,6 @@ public class DrawingManager : MonoBehaviour
     public PaintTexture paintTexture;
 
     public Canting[] cantings;
-
-    [SerializeField] private Vector2 CantingOffset = new Vector2(400f, 0f);
 
     public Button NextButton;
 
@@ -34,7 +29,7 @@ public class DrawingManager : MonoBehaviour
 
     public void UnsetCanting()
     {
-        if (cantings  != null)
+        if (cantings != null)
         {
             foreach (Canting canting in cantings)
             {
@@ -64,7 +59,6 @@ public class DrawingManager : MonoBehaviour
 
         RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, Input.mousePosition, null, out mousePosition);
 
-        if (currentCanting.CantingOffset != null) cantingRect.localPosition = mousePosition - currentCanting.CantingOffset;
-        else cantingRect.localPosition = mousePosition - CantingOffset;
+        cantingRect.localPosition = mousePosition - currentCanting.CantingOffset;
     }
 }
