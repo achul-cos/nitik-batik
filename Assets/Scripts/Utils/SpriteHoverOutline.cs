@@ -4,12 +4,15 @@ using UnityEngine;
 [RequireComponent(typeof(BoxCollider2D))]
 public class SpriteHoverOutline : MonoBehaviour
 {
+    public const float MaxOutlineWidth = 40f;
+
     [Header("Outline Settings")]
     [SerializeField]
     private Color outlineColor = Color.white;
 
+    // Lebar dihitung dalam texel texture, jadi sprite beresolusi tinggi butuh nilai lebih besar agar terlihat tebal di layar.
     [SerializeField]
-    [Range(0f, 10f)]
+    [Range(0f, MaxOutlineWidth)]
     private float outlineWidth = 10f;
 
     [SerializeField]
@@ -161,6 +164,17 @@ public class SpriteHoverOutline : MonoBehaviour
         SetOutline(false);
     }
 
+    /// <summary>
+    /// Menyalakan/mematikan outline secara langsung, tanpa memedulikan <see cref="hoverOutline"/>.
+    /// Dipakai skrip yang mengatur sendiri kapan outline boleh tampil (misalnya hanya untuk objek yang boleh dipilih).
+    /// </summary>
+    public void SetOutlineLangsung(bool aktif)
+    {
+        outlineEnabled = aktif;
+
+        ApplyShaderProperties();
+    }
+
 
     public void SetOutlineColor(Color color)
     {
@@ -176,7 +190,7 @@ public class SpriteHoverOutline : MonoBehaviour
             Mathf.Clamp(
                 width,
                 0f,
-                10f
+                MaxOutlineWidth
             );
 
         ApplyShaderProperties();

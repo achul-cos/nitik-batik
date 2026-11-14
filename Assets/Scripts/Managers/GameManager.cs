@@ -425,7 +425,13 @@ public class GameManager : Singleton<GameManager>
     public void NextBatik() => LoadGameScene(GameState.Drawing, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
     public void NextRebus() => LoadGameScene(GameState.Boiling, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
     public void NextDrying() => LoadGameScene(GameState.Drying, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
-    public void NextResult() => LoadGameScene(GameState.Lobby, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
+    public void NextResult()
+    {
+        // Pesanan customer yang sedang dilayani selesai; customer-nya dilepas saat Lobby termuat
+        CustomerManager.Instance?.TandaiPesananSelesaiDikerjakan();
+
+        LoadGameScene(GameState.Lobby, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
+    }
 
     // ======================================================
     // Helper untuk Konfigurasi

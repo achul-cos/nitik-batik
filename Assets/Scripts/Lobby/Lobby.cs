@@ -1,17 +1,15 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
-/// Pengatur scene Lobby: menampilkan antrean customer di kursi, tombol ambil/selesai pesanan, dan dialog.
+/// Pengatur scene Lobby: menampilkan antrean customer di kursi, memilih customer, dan membuka dialog.
+/// <para />
+/// Pemain memilih customer dengan mengklik customer paling depan antrean (setelah ia duduk).
 /// Tampilan antrean hanya diperbarui saat ada customer datang atau selesai dilayani (berbasis event).
 /// </summary>
 public class Lobby : MonoBehaviour
 {
     [Header("UI Component")]
-    public Button tombolAmbilPesanan;
-    public Button tombolSelesaiPesanan;
     public DialogPanel dialogPanel;
 
     [Header("Antiran Customer Configuration")]
@@ -28,8 +26,6 @@ public class Lobby : MonoBehaviour
 
     private CustomerManager _customerManager;
     private GameManager _gameManager;
-    private Coroutine _jedaTombolCoroutine;
-    private bool _menungguGerakCustomer;
 
     private void Start()
     {
@@ -50,11 +46,12 @@ public class Lobby : MonoBehaviour
         if (dialogPanel != null)
             dialogPanel.DialogSelesai += HandleDialogSelesai;
 
-        tombolAmbilPesanan.onClick.AddListener(OnAmbilPesanan);
-        tombolSelesaiPesanan.onClick.AddListener(OnSelesaiPesanan);
+        // Jika pemain baru kembali dari menjemur, pesanannya selesai dan customernya pergi
+        // (dilakukan sebelum antrean ditampilkan agar customer itu tidak sempat muncul lagi).
+        if (_customerManager != null)
+            _customerManager.LayaniPesananSelesai();
 
         RefreshAntrian();
-        MulaiJedaTombol();
     }
 
     private void OnDestroy()
@@ -70,6 +67,14 @@ public class Lobby : MonoBehaviour
 
         if (dialogPanel != null)
             dialogPanel.DialogSelesai -= HandleDialogSelesai;
+
+        foreach (CustomerSlot slot in customerObjects)
+        {
+            if (slot == null) continue;
+
+            slot.Dipilih -= HandleCustomerDipilih;
+            slot.SelesaiBergerak -= HandleSlotSelesaiBergerak;
+        }
     }
 
     #region Event handler
@@ -77,18 +82,16 @@ public class Lobby : MonoBehaviour
     private void HandleCustomerArrive(Customer customer)
     {
         RefreshAntrian();
-        MulaiJedaTombol();
     }
 
     private void HandleCustomerServe(Customer customer)
     {
         RefreshAntrian();
-        MulaiJedaTombol();
     }
 
     private void HandleDialogStarted(Customer customer)
     {
-        PerbaruiTombolAmbil();
+        PerbaruiPilihan();
 
         if (dialogPanel != null)
             dialogPanel.Tampilkan(customer);
@@ -99,53 +102,50 @@ public class Lobby : MonoBehaviour
         GameManager.Instance.NextFabric();
     }
 
-    #endregion
-
-    #region Tombol
+    private void HandleSlotSelesaiBergerak(CustomerSlot slot)
+    {
+        PerbaruiPilihan();
+    }
 
     /// <summary>
-    /// Tombol ambil pesanan baru aktif setelah customer selesai berjalan ke kursi.
-    /// Jika ada jeda yang sedang berjalan, jeda diulang (tidak menumpuk).
+    /// Pemain mengklik customer. Hanya customer terdepan yang sudah duduk yang bisa sampai ke sini.
     /// </summary>
-    private void MulaiJedaTombol()
+    private void HandleCustomerDipilih(CustomerSlot slot)
     {
-        if (_jedaTombolCoroutine != null) StopCoroutine(_jedaTombolCoroutine);
+        if (_gameManager == null || _gameManager.IsPaused) return;
 
-        _jedaTombolCoroutine = StartCoroutine(JedaTombol());
-    }
+        if (!BolehDipilih(slot)) return;
 
-    private IEnumerator JedaTombol()
-    {
-        _menungguGerakCustomer = true;
-        PerbaruiTombolAmbil();
-
-        yield return new WaitForSeconds(kecepatanGerakCustomer * 1.5f);
-
-        _menungguGerakCustomer = false;
-        _jedaTombolCoroutine = null;
-        PerbaruiTombolAmbil();
-    }
-
-    private void PerbaruiTombolAmbil()
-    {
-        if (tombolAmbilPesanan == null || _customerManager == null) return;
-
-        tombolAmbilPesanan.interactable =
-            !_menungguGerakCustomer &&
-            _customerManager.CustomerCurrent == null &&
-            _customerManager.CustomerQueueCount > 0;
-    }
-
-    public void OnAmbilPesanan()
-    {
         // NextDialog mengambil customer terdepan dan memicu OnDialogStarted (yang membuka dialog).
-        GameManager.Instance.NextDialog();
-        PerbaruiTombolAmbil();
+        _gameManager.NextDialog();
+
+        PerbaruiPilihan();
     }
 
-    public void OnSelesaiPesanan()
+    #endregion
+
+    #region Memilih customer
+
+    /// <summary>
+    /// Customer boleh dipilih jika: paling depan antrean, sudah duduk, dan belum ada customer lain yang sedang dilayani.
+    /// </summary>
+    private bool BolehDipilih(CustomerSlot slot)
     {
-        CustomerManager.Instance.FinishCurrentCustomer();
+        if (slot == null || _customerManager == null) return false;
+
+        if (slot.isMoving) return false;
+
+        if (_customerManager.CustomerCurrent != null) return false;
+
+        return _customerManager.PeekCustomerAtIndex(0, isDebug: false) == slot.Customer;
+    }
+
+    private void PerbaruiPilihan()
+    {
+        foreach (CustomerSlot slot in customerObjects)
+        {
+            if (slot != null) slot.SetBisaDipilih(BolehDipilih(slot));
+        }
     }
 
     #endregion
@@ -193,10 +193,15 @@ public class Lobby : MonoBehaviour
         // Customer yang sudah tidak ada di antrean berjalan keluar.
         foreach (CustomerSlot slot in slotTersedia)
         {
+            slot.Dipilih -= HandleCustomerDipilih;
+            slot.SelesaiBergerak -= HandleSlotSelesaiBergerak;
+
             slot.Exit(customerChairs[^1].offPosition);
 
             customerObjects.Remove(slot);
         }
+
+        PerbaruiPilihan();
     }
 
     private static CustomerSlot CariSlot(List<CustomerSlot> slotTersedia, Customer customer)
@@ -230,6 +235,9 @@ public class Lobby : MonoBehaviour
 
         slot.moveSpeed = kecepatanGerakCustomer;
         slot.animationSpeed = jedaAnimasiJalanCustomer;
+
+        slot.Dipilih += HandleCustomerDipilih;
+        slot.SelesaiBergerak += HandleSlotSelesaiBergerak;
 
         customerObjects.Add(slot);
 

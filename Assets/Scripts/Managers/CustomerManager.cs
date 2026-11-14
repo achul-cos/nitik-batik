@@ -177,6 +177,7 @@ public class CustomerManager : Singleton<CustomerManager>
 
         // Hapus customer sekarang
         _customerCurrent = null;
+        _pesananSelesaiDikerjakan = false;
 
         // Mereset jumlah customer yang sedang dilayani sekarang
         _customerServedToday = 0;
@@ -279,6 +280,34 @@ public class CustomerManager : Singleton<CustomerManager>
             // Menghapus kain
             curretChooseFabric = null;
         }
+    }
+
+    // True jika pesanan customer yang sedang dilayani sudah selesai dikerjakan (kain, batik, rebus, jemur)
+    // dan menunggu customer dilepas saat Lobby dimuat lagi.
+    private bool _pesananSelesaiDikerjakan;
+
+    /// <summary>
+    /// Menandai bahwa pesanan customer yang sedang dilayani selesai dikerjakan.
+    /// Dipanggil ketika pemain selesai menjemur dan kembali ke Lobby.
+    /// </summary>
+    public void TandaiPesananSelesaiDikerjakan()
+    {
+        if (_customerCurrent != null) _pesananSelesaiDikerjakan = true;
+    }
+
+    /// <summary>
+    /// Jika ada pesanan yang selesai dikerjakan, customer-nya dilepas (<see cref="FinishCurrentCustomer"/>).
+    /// </summary>
+    /// <returns>True jika ada customer yang dilepas</returns>
+    public bool LayaniPesananSelesai()
+    {
+        if (!_pesananSelesaiDikerjakan) return false;
+
+        _pesananSelesaiDikerjakan = false;
+
+        FinishCurrentCustomer();
+
+        return true;
     }
 
     /// <summary>
