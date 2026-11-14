@@ -19,34 +19,13 @@ public class TimeManager : Singleton<TimeManager>
     // Toko ditutup pada jam 5 sore atau 17.00 (secara default), dapat disesuaikan nantinya
     [SerializeField] private int _endHour = 17;
 
-    // Terdapat perbedaan kecepatan waktu berjalan pada skala waktu didalam game
-    // dengan skala waktu dunia nyata.
-    // Bahwa 8 Jam Dunia Game, setara dengan 20 Menit Dunia Game
-    // Maka dibutuhkan sebuah ratio perbandingan waktu;
+    // Lama satu hari (dari jam buka sampai jam tutup toko) dalam menit dunia nyata.
+    // Contoh: toko buka 09.00-17.00 (480 menit game) dan satu hari 5 menit nyata,
+    // maka waktu game berjalan 480 / 5 = 96 kali lebih cepat, atau 1,6 menit game per detik nyata.
+    [SerializeField, Min(0.1f)] private float _dayDurationMinutes = 5f;
 
-    // Asumsikan X = Dunia Game, Y = Dunia Nyata
-    //
-    // 8 Jam X = 8 Jam Y                            (1)
-    // (8 * 60) Menit X = (8 * 60) Menit Y          (2) 1 jam = 60 menit
-    //
-    // Kita menginginkan bahwa 8 * 60 menit dunia game setara dengan 20 menit dunia nyata,
-    //
-    // (8 * 60) Menit X = 20 menit Y                (3) Ganti (8 * 60) Menit Y, menjadi 20 menit Y
-    // Y = (8 * 60) / 20 Menit X                    (4) bagi setiap ruas dengan 20
-    //
-    // Maka, rasio perbadingan waktunya yaitu, (8 * 60) / 20 Menit
-    //
-    // Tetapi rasio ini jika dijumlahkan 480 / 20 = 24
-    // Maka waktu didalam game berjalan 24 kali lebih cepat daripada dunia nyata.
-    //
-    // variabel _timeRatio digunakan mengkonversi waktu yang berjalan secara real time menjadi menjadi waktu dunia game,
-    //
-    // Maka rasio perbandingan wakutnya dibalik menjadi 20 / (8 * 60) = 1 / 24
-    // Maka waktu didunia berjalan 24 kali lebih lambar dari waktu didunia game.
-
-    // _timeRation adalah perbandingan waktu yang berjalan didunia nyata (yang 24 kali lebih lambat),
-    // daripada waktu didunia game
-    [SerializeField] private float _timeRatio = 20f / (8 * 60);
+    // Jumlah menit game yang berjalan setiap 1 detik dunia nyata.
+    private float GameMinutesPerRealSecond => (_endHour - _startHour) * 60f / (_dayDurationMinutes * 60f);
 
     // _timeMinute menjelaskan bahwa sekarang sudah ke menit berapa berjalan waktunya didalam dunia game
     private float _timeMinute = 0;
@@ -173,15 +152,8 @@ public class TimeManager : Singleton<TimeManager>
                 return;
             }
 
-            // Tambahkan nilai _timeMinute melalui TimeMinute
-            // Tambahkan dengan bantuan tool Time.deltaTime yang menghasilkan satuan waktu dunia realtime
-            // waktu dunia realtime haruslah dikali dengan rasio perbandingan waktu yaitu waktu dunia game 24 kali lebih cepat daripada waktu dunia nyata
-            // Karena rasio perbandingan dideklaraikan 1 time (dunia nyata) / 24 time (dunia game),
-            // maka Time.deltaTime haruslah dibagi dengan rasio perbandingan,
-            // karena pembagian dengan pecahan atau nilai desimal atau nilai yang lebih kecil
-            // menghasilkan nilai yang lebih besar; 1 * 1/2 = 2; 1 * 1/24 = 24;
-
-            TimeMinute = Time.deltaTime * _timeRatio * 10f;
+            // Tambahkan menit game sesuai detik dunia nyata yang berlalu (Time.deltaTime)
+            TimeMinute = Time.deltaTime * GameMinutesPerRealSecond;
 
             // Trigger Publisher TimeChanged
             // Serta memberikan data jam dan waktu game sekarang

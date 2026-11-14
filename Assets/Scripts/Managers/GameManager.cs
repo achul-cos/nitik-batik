@@ -48,27 +48,6 @@ public class GameManager : Singleton<GameManager>
     /// </summary>
     private SaveDataNew _currentSaveData;
 
-    /// <summary>
-    /// Properti untuk mengakses data save saat ini. 
-    /// Jika null, akan dibuat baru secara otomatis.
-    /// </summary>
-    public SaveDataNew CurrentSaveData
-    {
-        get
-        {
-            if (_currentSaveData == null)
-            {
-                // Coba muat dari file, jika tidak ada buat baru
-                _currentSaveData = SaveManager.Instance.LoadGameNew() ?? SaveManager.Instance.CreateNewSave();
-            }
-            return _currentSaveData;
-        }
-        private set
-        {
-            _currentSaveData = value;
-        }
-    }
-
     // ======================================================
     // Events
     // ======================================================
@@ -144,7 +123,7 @@ public class GameManager : Singleton<GameManager>
         _isPaused = false;
 
         // Buat save data baru dan simpan referensi
-        _currentSaveData = SaveManager.Instance.CreateNewSave();
+        _currentSaveData = SaveManager.Instance.CreateNewSave(_phasesConfigDatabase.phaseConfigs);
 
         Debug.Log($"GameManager : Game baru dimulai pada Phase {_currentPhase}, Day {_currentDay}, Balance {_currentBalance}");
     }
@@ -178,6 +157,9 @@ public class GameManager : Singleton<GameManager>
         SaveDataNew saveData = SaveManager.Instance.LoadGameNew();
         if (saveData != null)
         {
+            // Samakan struktur save dengan konfigurasi game sekarang (jumlah fase/hari bisa berubah antar versi)
+            SaveDataNewDefault.Sinkronkan(saveData, _phasesConfigDatabase.phaseConfigs);
+
             _currentSaveData = saveData; // Simpan referensi
 
             _currentPhase = saveData.phaseIndex + 1; // 0-based → 1-based
@@ -225,7 +207,7 @@ public class GameManager : Singleton<GameManager>
         // Pastikan _currentSaveData tidak null
         if (_currentSaveData == null)
         {
-            _currentSaveData = SaveManager.Instance.CreateNewSave();
+            _currentSaveData = SaveManager.Instance.CreateNewSave(_phasesConfigDatabase.phaseConfigs);
         }
 
         // Update posisi fase dan hari

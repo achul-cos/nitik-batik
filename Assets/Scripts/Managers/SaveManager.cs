@@ -6,9 +6,11 @@ using UnityEngine;
 /// SaveManager menangani semua operasi penyimpanan dan pemuatan data game menggunakan JSON.
 /// Data disimpan di <see cref="Application.persistentDataPath"/> dengan dua format berbeda:
 /// <list type="bullet">
-///     <item><description>Format lama (<see cref="SaveData"/>) – digunakan oleh metode <see cref="SaveGame"/> dan <see cref="LoadGame"/>.</description></item>
-///     <item><description>Format baru (<see cref="SaveDataNew"/>) – digunakan oleh metode <see cref="SaveGameNew"/> dan <see cref="LoadGameNew"/>.</description></item>
+///     <item><description>Format lama (<see cref="SaveData"/>) - digunakan oleh metode <see cref="SaveGame"/> dan <see cref="LoadGame"/>.</description></item>
+///     <item><description>Format baru (<see cref="SaveDataNew"/>) - digunakan oleh metode <see cref="SaveGameNew"/> dan <see cref="LoadGameNew"/>.</description></item>
 /// </list>
+/// Penulisan dilakukan secara atomik (file sementara lalu diganti) dan file sebelumnya disimpan sebagai cadangan (.bak),
+/// sehingga crash saat menyimpan tidak merusak save yang ada.
 /// </summary>
 public class SaveManager : Singleton<SaveManager>
 {
@@ -18,6 +20,8 @@ public class SaveManager : Singleton<SaveManager>
 
     private const string SAVE_FILE_NAME_LEGACY = "aksara_batik_save.json";
     private const string SAVE_FILE_NAME_NEW = "aksara_batik_save_new.json";
+    private const string BACKUP_EXTENSION = ".bak";
+    private const string TEMP_EXTENSION = ".tmp";
 
     private string _savePathLegacy;
     private string _savePathNew;
@@ -40,6 +44,61 @@ public class SaveManager : Singleton<SaveManager>
     }
 
     // ======================================================
+    // Penulisan dan pembacaan file (atomik + cadangan)
+    // ======================================================
+
+    /// <summary>
+    /// Menulis ke file sementara dulu, lalu mengganti file tujuan. File lama menjadi cadangan (.bak).
+    /// </summary>
+    private static void TulisAtomik(string path, string json)
+    {
+        string pathSementara = path + TEMP_EXTENSION;
+
+        File.WriteAllText(pathSementara, json);
+
+        if (File.Exists(path))
+            File.Replace(pathSementara, path, path + BACKUP_EXTENSION);
+        else
+            File.Move(pathSementara, path);
+    }
+
+    /// <summary>
+    /// Membaca dan mengurai JSON. Jika file utama rusak atau tidak bisa dibaca, mencoba cadangan (.bak).
+    /// </summary>
+    private static T BacaDenganCadangan<T>(string path, string label) where T : class
+    {
+        T hasil = CobaBaca<T>(path, label);
+
+        if (hasil != null) return hasil;
+
+        string pathCadangan = path + BACKUP_EXTENSION;
+
+        if (File.Exists(pathCadangan))
+        {
+            Debug.LogWarning($"SaveManager : {label} utama tidak bisa dibaca, mencoba cadangan.");
+            hasil = CobaBaca<T>(pathCadangan, label + " (cadangan)");
+        }
+
+        return hasil;
+    }
+
+    private static T CobaBaca<T>(string path, string label) where T : class
+    {
+        if (!File.Exists(path)) return null;
+
+        try
+        {
+            string json = File.ReadAllText(path);
+            return JsonUtility.FromJson<T>(json);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"SaveManager : Gagal membaca {label}. Error: {e.Message}");
+            return null;
+        }
+    }
+
+    // ======================================================
     // Metode untuk format lama (Legacy)
     // ======================================================
 
@@ -59,7 +118,7 @@ public class SaveManager : Singleton<SaveManager>
 
         try
         {
-            File.WriteAllText(_savePathLegacy, json);
+            TulisAtomik(_savePathLegacy, json);
             Debug.Log($"SaveManager : Save legacy berhasil (Phase {currentPhase}, Day {currentDay}, Balance {currentBalance})");
         }
         catch (Exception e)
@@ -76,29 +135,20 @@ public class SaveManager : Singleton<SaveManager>
             return null;
         }
 
-        try
-        {
-            string json = File.ReadAllText(_savePathLegacy);
-            SaveData saveData = JsonUtility.FromJson<SaveData>(json);
+        SaveData saveData = BacaDenganCadangan<SaveData>(_savePathLegacy, "save legacy");
+
+        if (saveData != null)
             Debug.Log($"SaveManager : Load legacy sukses (Phase {saveData.phase}, Day {saveData.day}, Balance {saveData.balance})");
-            return saveData;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"SaveManager [LoadGame] : Gagal membaca save legacy. Error: {e.Message}");
-            return null;
-        }
+
+        return saveData;
     }
 
     public SaveData GetGameData() => LoadGame();
 
     public void DeleteSaveLegacy()
     {
-        if (HasSaveLegacy())
-        {
-            File.Delete(_savePathLegacy);
-            Debug.Log("SaveManager : Save legacy berhasil dihapus.");
-        }
+        HapusFile(_savePathLegacy);
+        Debug.Log("SaveManager : Save legacy berhasil dihapus.");
     }
 
     // ======================================================
@@ -119,7 +169,7 @@ public class SaveManager : Singleton<SaveManager>
 
         try
         {
-            File.WriteAllText(_savePathNew, json);
+            TulisAtomik(_savePathNew, json);
             Debug.Log("SaveManager : SaveDataNew berhasil disimpan.");
         }
         catch (Exception e)
@@ -136,29 +186,22 @@ public class SaveManager : Singleton<SaveManager>
             return null;
         }
 
-        try
-        {
-            string json = File.ReadAllText(_savePathNew);
-            SaveDataNew data = JsonUtility.FromJson<SaveDataNew>(json);
-            Debug.Log("SaveManager : LoadGameNew sukses.");
-            return data;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"SaveManager [LoadGameNew] : Gagal membaca. Error: {e.Message}");
-            return null;
-        }
+        SaveDataNew data = BacaDenganCadangan<SaveDataNew>(_savePathNew, "save baru");
+
+        if (data != null) Debug.Log("SaveManager : LoadGameNew sukses.");
+
+        return data;
     }
 
-    public SaveDataNew CreateNewSave() => SaveDataNewDefault.Create();
+    /// <summary>
+    /// Membuat save baru yang strukturnya (jumlah fase dan hari) mengikuti konfigurasi game yang sedang dipakai.
+    /// </summary>
+    public SaveDataNew CreateNewSave(PhaseConfig[] phaseConfigs) => SaveDataNewDefault.Create(phaseConfigs);
 
     public void DeleteSaveNew()
     {
-        if (HasSaveNew())
-        {
-            File.Delete(_savePathNew);
-            Debug.Log("SaveManager : Save baru berhasil dihapus.");
-        }
+        HapusFile(_savePathNew);
+        Debug.Log("SaveManager : Save baru berhasil dihapus.");
     }
 
     // ======================================================
@@ -172,6 +215,17 @@ public class SaveManager : Singleton<SaveManager>
         DeleteSaveLegacy();
         DeleteSaveNew();
         Debug.Log("SaveManager : Semua file save telah dihapus.");
+    }
+
+    /// <summary>
+    /// Menghapus file save beserta cadangan dan file sementaranya.
+    /// </summary>
+    private static void HapusFile(string path)
+    {
+        foreach (string target in new[] { path, path + BACKUP_EXTENSION, path + TEMP_EXTENSION })
+        {
+            if (File.Exists(target)) File.Delete(target);
+        }
     }
 
     // ======================================================

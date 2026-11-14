@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using UnityEngine;
 
 // ============================================================================
 // Kelas penyimpanan data utama
@@ -46,74 +47,11 @@ public class SaveDataNew
     }
 
     /// <summary>
-    /// Mengambil konfigurasi fase berdasarkan indeks fase.
-    /// </summary>
-    public PhaseConfig GetPhaseConfig(int phaseIndex)
-    {
-        if (phaseIndex < 0 || phaseIndex >= phaseSaveDatas.Count)
-            return null;
-
-        return phaseSaveDatas[phaseIndex].phaseConfig;
-    }
-
-    /// <summary>
-    /// Menghitung total seluruh hari dari semua fase.
-    /// </summary>
-    public int GetTotalDay()
-    {
-        int jumlahHari = 0;
-        foreach (PhaseSaveData phase in phaseSaveDatas)
-        {
-            jumlahHari += phase.phaseConfig.phaseDay.Length;
-        }
-        return jumlahHari;
-    }
-
-    /// <summary>
     /// Menghitung jumlah fase yang tersimpan.
     /// </summary>
     public int GetTotalPhase()
     {
         return phaseSaveDatas.Count;
-    }
-
-    /// <summary>
-    /// Mencari konfigurasi fase berdasarkan indeks hari global.
-    /// </summary>
-    public PhaseConfig GetPhaseConfigByDayIndex(int globalDayIndex)
-    {
-        if (globalDayIndex < 0) return null;
-
-        int current = 0;
-        foreach (var phase in phaseSaveDatas)
-        {
-            int total = phase.phaseConfig.phaseDay.Length;
-            if (globalDayIndex < current + total)
-                return phase.phaseConfig;
-            current += total;
-        }
-        return null;
-    }
-
-    /// <summary>
-    /// Mengambil konfigurasi hari berdasarkan indeks hari global.
-    /// </summary>
-    public DayConfig GetDayConfig(int globalDayIndex)
-    {
-        if (globalDayIndex < 0)
-            return null;
-
-        int current = 0;
-        foreach (var phase in phaseSaveDatas)
-        {
-            int total = phase.phaseConfig.phaseDay.Length;
-            if (globalDayIndex < current + total)
-            {
-                return phase.phaseConfig.phaseDay[globalDayIndex - current];
-            }
-            current += total;
-        }
-        return null;
     }
 
     // ------------------------------------------------------------------------
@@ -134,28 +72,6 @@ public class SaveDataNew
     }
 
     /// <summary>
-    /// Mendapatkan konfigurasi fase saat ini.
-    /// </summary>
-    public PhaseConfig CurrentPhaseConfig
-    {
-        get { return CurrentPhase?.phaseConfig; }
-    }
-
-    /// <summary>
-    /// Mendapatkan konfigurasi hari dari fase dan indeks hari tertentu.
-    /// </summary>
-    public DayConfig GetDayConfigByPhase(int phaseIndex, int dayIndex)
-    {
-        if (phaseIndex < 0 || dayIndex < 0) return null;
-        if (phaseIndex >= GetTotalPhase()) return null;
-
-        PhaseConfig phase = GetPhaseConfig(phaseIndex);
-        if (dayIndex >= phase.phaseDay.Length) return null;
-
-        return phase.phaseDay[dayIndex];
-    }
-
-    /// <summary>
     /// Mendapatkan data hari saat ini (dari fase saat ini dan indeks hari saat ini).
     /// </summary>
     public DaySaveData CurrentDay
@@ -171,14 +87,6 @@ public class SaveDataNew
     }
 
     /// <summary>
-    /// Mendapatkan konfigurasi hari saat ini.
-    /// </summary>
-    public DayConfig CurrentDayConfig
-    {
-        get { return CurrentDay?.DayConfig; }
-    }
-
-    /// <summary>
     /// Menghitung indeks hari global dari posisi saat ini.
     /// </summary>
     public int CurrentGlobalDayIndex
@@ -186,11 +94,11 @@ public class SaveDataNew
         get
         {
             int total = 0;
-            for (int i = 0; i < phaseIndex; i++)
+            for (int i = 0; i < phaseIndex && i < phaseSaveDatas.Count; i++)
             {
                 total += phaseSaveDatas[i].daySaveDatas.Count;
             }
-            total += CurrentPhase.dayIndex;
+            if (CurrentPhase != null) total += CurrentPhase.dayIndex;
             return total;
         }
     }
@@ -274,6 +182,9 @@ public class SaveDataNew
         int? customerServed = null,
         long? balance = null)
     {
+        if (CurrentPhase == null)
+            return;
+
         SetDaySaveData(
             phaseIndex,
             CurrentPhase.dayIndex,
@@ -316,6 +227,9 @@ public class SaveDataNew
 
     public bool IsLastDay()
     {
+        if (CurrentPhase == null)
+            return false;
+
         return CurrentPhase.dayIndex == CurrentPhase.daySaveDatas.Count - 1;
     }
 
@@ -420,12 +334,12 @@ public class SaveDataNew
 // ============================================================================
 
 /// <summary>
-/// Menyimpan data untuk satu fase, termasuk konfigurasi dan daftar data hari.
+/// Menyimpan data untuk satu fase (progres per hari). Konfigurasi fase/hari tidak disimpan di sini,
+/// karena selalu dibaca dari <see cref="PhasesConfigDatabase"/> yang sedang dipakai game.
 /// </summary>
 [System.Serializable]
 public class PhaseSaveData
 {
-    public PhaseConfig phaseConfig;
     public List<DaySaveData> daySaveDatas = new List<DaySaveData>();
     public SaveTime timestamp;   // ← Ganti Time → SaveTime
     public int dayIndex;
@@ -437,7 +351,6 @@ public class PhaseSaveData
 [System.Serializable]
 public class DaySaveData
 {
-    public DayConfig DayConfig;
     public SaveTime timestamp;   // ← Ganti Time → SaveTime
     public int customerServed;
     public long balance;
@@ -452,7 +365,10 @@ public class DaySaveData
 /// </summary>
 public static class SaveDataNewDefault
 {
-    public static SaveDataNew Create()
+    /// <summary>
+    /// Membuat save baru dengan jumlah fase dan hari yang sama seperti <paramref name="phaseConfigs"/>.
+    /// </summary>
+    public static SaveDataNew Create(PhaseConfig[] phaseConfigs)
     {
         var saveData = new SaveDataNew
         {
@@ -460,30 +376,57 @@ public static class SaveDataNewDefault
             phaseSaveDatas = new List<PhaseSaveData>()
         };
 
-        foreach (var phase in PhasesConfigDefault.phaseConfigs)
-        {
-            var phaseSaveData = new PhaseSaveData
-            {
-                phaseConfig = phase,
-                dayIndex = 0,
-                timestamp = new SaveTime(),   // ← Ganti Time → SaveTime
-                daySaveDatas = new List<DaySaveData>()
-            };
-
-            foreach (var day in phase.phaseDay)
-            {
-                phaseSaveData.daySaveDatas.Add(new DaySaveData
-                {
-                    DayConfig = day,
-                    timestamp = new SaveTime(),   // ← Ganti Time → SaveTime
-                    customerServed = 0,
-                    balance = 0
-                });
-            }
-
-            saveData.phaseSaveDatas.Add(phaseSaveData);
-        }
+        Sinkronkan(saveData, phaseConfigs);
 
         return saveData;
+    }
+
+    /// <summary>
+    /// Menyamakan struktur save (jumlah fase dan hari) dengan konfigurasi game yang sekarang.
+    /// Dipakai agar save lama tidak menyebabkan indeks di luar batas ketika konfigurasi berubah.
+    /// Data yang sudah ada dipertahankan; fase/hari baru ditambahkan, yang berlebih dibuang.
+    /// </summary>
+    public static void Sinkronkan(SaveDataNew saveData, PhaseConfig[] phaseConfigs)
+    {
+        if (saveData == null || phaseConfigs == null) return;
+
+        saveData.phaseSaveDatas ??= new List<PhaseSaveData>();
+
+        while (saveData.phaseSaveDatas.Count < phaseConfigs.Length)
+            saveData.phaseSaveDatas.Add(null);
+
+        if (saveData.phaseSaveDatas.Count > phaseConfigs.Length)
+            saveData.phaseSaveDatas.RemoveRange(phaseConfigs.Length, saveData.phaseSaveDatas.Count - phaseConfigs.Length);
+
+        for (int p = 0; p < phaseConfigs.Length; p++)
+        {
+            PhaseSaveData phaseSave = saveData.phaseSaveDatas[p];
+
+            if (phaseSave == null)
+            {
+                phaseSave = new PhaseSaveData { timestamp = new SaveTime() };
+                saveData.phaseSaveDatas[p] = phaseSave;
+            }
+
+            phaseSave.daySaveDatas ??= new List<DaySaveData>();
+
+            int jumlahHari = phaseConfigs[p].phaseDay != null ? phaseConfigs[p].phaseDay.Length : 0;
+
+            while (phaseSave.daySaveDatas.Count < jumlahHari)
+                phaseSave.daySaveDatas.Add(new DaySaveData { timestamp = new SaveTime(), customerServed = 0, balance = 0 });
+
+            if (phaseSave.daySaveDatas.Count > jumlahHari)
+                phaseSave.daySaveDatas.RemoveRange(jumlahHari, phaseSave.daySaveDatas.Count - jumlahHari);
+
+            for (int d = 0; d < phaseSave.daySaveDatas.Count; d++)
+            {
+                if (phaseSave.daySaveDatas[d] == null)
+                    phaseSave.daySaveDatas[d] = new DaySaveData { timestamp = new SaveTime() };
+            }
+
+            phaseSave.dayIndex = jumlahHari > 0 ? Mathf.Clamp(phaseSave.dayIndex, 0, jumlahHari - 1) : 0;
+        }
+
+        saveData.phaseIndex = phaseConfigs.Length > 0 ? Mathf.Clamp(saveData.phaseIndex, 0, phaseConfigs.Length - 1) : 0;
     }
 }
