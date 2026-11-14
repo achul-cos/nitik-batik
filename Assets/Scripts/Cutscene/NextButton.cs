@@ -36,7 +36,7 @@ public class NextButton : MonoBehaviour
 
     public IEnumerator handleCooldow()
     {
-        if (isCooldown == true) yield return null;
+        if (isCooldown == true) yield break;
 
         isCooldown = true;
 
@@ -51,7 +51,7 @@ public class NextButton : MonoBehaviour
 
     public IEnumerator handleNext()
     {
-        if (komiks.Count == 0) yield return null;
+        if (komiks.Count == 0) yield break;
 
         if (komiks.Count > indexUrutan + 1)
         {
@@ -76,7 +76,7 @@ public class NextButton : MonoBehaviour
                 index++;
             }
         }
-        else
+        else if (indexUrutan > 0)
         {
             if (komiks[indexUrutan - 1].posisiUrutan.Length > indexPosisi + 1)
             {

@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 544c37c2b48d81342a37ae8678ea5f7c, type: 3}
+  m_Name: Dahsar
+  m_EditorClassIdentifier: 
+  customers:
+  - {fileID: 11400000, guid: c56707da569ce2d4b9f484cf3aa4be0e, type: 2}
+  - {fileID: 11400000, guid: 882db178903b1bb45a13f707a65aa5a6, type: 2}
+  - {fileID: 11400000, guid: b8b1bd3a7fbef794e931bbe61b3ba37a, type: 2}
+  - {fileID: 11400000, guid: f636a4990a3053c4c9f5f0c064af7205, type: 2}

@@ -852,7 +852,8 @@ public class MainMenuUIManager : MonoBehaviour
     {
         AudioManager.Instance.PlaySFXName("click");
 
-        GameManager.Instance.CutScene();
+        if (GameManager.Instance.development == true) GameManager.Instance.Play();
+        else GameManager.Instance.CutScene();
     }
 
     public void OriginalPositionSelectionPhase()

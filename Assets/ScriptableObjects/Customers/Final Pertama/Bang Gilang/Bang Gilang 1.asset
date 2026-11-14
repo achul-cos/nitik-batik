@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4038f31b9df31fa498452fcd9102a7bb, type: 3}
+  m_Name: Bang Gilang 1
+  m_EditorClassIdentifier: 
+  customerId: 
+  customerName: Bang Gilang
+  customerDesc: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque
+    sit amet orci venenatis, blandit tellus sed, pretium nisl. Aenean semper, neque
+    in ultricies mattis, quam sapien sodales lectus, sit amet sodales tellus tortor
+    ac est.
+  customerDialog: 
+  customerDialogList:
+  - Ini adalah contoh dari baris pertama dari dialog
+  - Selanjutnya ini adalah baris kedua dari dialog karakter ini
+  - Ketigalah ini baris dialog sekarang
+  - Empat adalah baris dialog yang biasanya menjadi sebelum dialog penutup
+  - Dan ini baris terakhir dari dialog placehoder dan ini baris kelima.
+  customerImage: {fileID: 2800000, guid: 4b6c6bd2c9787ee43813dfab3d8173a5, type: 3}
+  customerSprite: {fileID: -712070623, guid: 4b6c6bd2c9787ee43813dfab3d8173a5, type: 3}
+  customerSideImage: {fileID: 2800000, guid: ed7d2591e4dfc5b4980f379adbc2711a, type: 3}
+  customerSideSprite: {fileID: -2063573230, guid: ed7d2591e4dfc5b4980f379adbc2711a, type: 3}
+  customerSitImage: {fileID: 2800000, guid: 1da9fe19285c1b846989f53d5d1da953, type: 3}
+  customerSitSprite: {fileID: -1649043704, guid: 1da9fe19285c1b846989f53d5d1da953, type: 3}
+  customerHappyEkspresImage: {fileID: 2800000, guid: 8c8ede597767c4442a405a86a611987e, type: 3}
+  customerHappyEkspresSprite: {fileID: 1018892558, guid: 8c8ede597767c4442a405a86a611987e, type: 3}
+  customerSadEkspresImage: {fileID: 2800000, guid: f5d5b0a2afe6cec4685bfd963df935a6, type: 3}
+  customerSadEkspresSprite: {fileID: -562719243, guid: f5d5b0a2afe6cec4685bfd963df935a6, type: 3}
+  customerFabric: {fileID: 11400000, guid: 068b87b05d2e6694aafb777624f07aa0, type: 2}
+  customerBatik: {fileID: 11400000, guid: 9d16b23814e429b4cbdc324a30f715ec, type: 2}
+  customerWealth: 0
+  customerPerfect: 0
+  customerBatikColor: 0

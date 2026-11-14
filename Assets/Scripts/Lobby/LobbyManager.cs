@@ -6,7 +6,7 @@ using UnityEngine.UI;
 using DG.Tweening;
 using Unity.VisualScripting;
 
-public class LobbyUIManager : MonoBehaviour
+public class LobbyManager : MonoBehaviour
 {
     public Button nextCustomerButton;
     public GameObject dialogPanel;
@@ -35,6 +35,25 @@ public class LobbyUIManager : MonoBehaviour
             CustomerManager.Instance.CustomerServed -= OnCustomerServed;
         }
     }
+
+    private void Awake()
+    {
+        GameManager.Instance.OnDialogStarted += ShowDialog;
+    }
+
+    private void OnDestroy()
+    {
+        if (GameManager.Instance != null)
+            GameManager.Instance.OnDialogStarted -= ShowDialog;
+    }
+    private void ShowDialog(Customer customer)
+    {
+        dialogPanel.SetActive(true);
+        nameChara.text = customer.customerName;
+        charaImage.texture = customer.customerImage;
+        HandleCustomerDialog();
+    }
+
 
     private void OnCustomerArrived(Customer customer)
     {

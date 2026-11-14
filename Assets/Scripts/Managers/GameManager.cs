@@ -1,331 +1,157 @@
-using System.Collections;
-using System.Collections.Generic;
-using NaughtyAttributes;
-using Unity.Collections;
+﻿using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using NaughtyAttributes;
 
 /// <summary>
-/// GameManager adalah Singleton yang mengkoordinasikan state global game,
-/// melacak phase, day, saldo pemain, dan flow keseluruhan game.
+/// GameManager adalah Singleton utama yang mengkoordinasikan seluruh state game,
+/// meliputi fase, hari, saldo, alur scene, dan manajemen save/load dengan format baru.
 /// </summary>
 public class GameManager : Singleton<GameManager>
 {
-    // Tidak akan dihapus saat berpindah scene
+    // ======================================================
+    // Singleton
+    // ======================================================
+
     protected override bool PersistBetweenScenes => true;
 
-    // GameState
+    // ======================================================
+    // State & Data
+    // ======================================================
+
     private GameState _state = GameState.MainMenu;
     public GameState State
     {
         get => _state;
-        private set
-        {
-            // Mengubah nilai dari GameState Global
-            _state = value;
-        }
+        private set => _state = value;
     }
 
-    // Scene Information
-    public string SceneName
-    {
-        set {; }
-        get
-        {
-            return _state.ToString();
-        }
-    }
-
-    // ====================================================== //
-
-    [Header("Game State")]
-
-    // Nilai default untuk phase saat pertama kali player bermain. yaitu Phase ke-1
+    [Header("Game Data")]
     [SerializeField] private int _currentPhase = 1;
-
-    // Nillai default untuk day saat pertama kali player bermain. Yaitu Day ke-1
     [SerializeField] private int _currentDay = 1;
-
-    // Nilai default untuk money atau uang yang dimiliki player, saat pertama kali player bermain,
-    // yaitu 0 (Rp. 0) Satuan nya rupiah jika visualnya, tapi secara data yaitu long (Int 64 bit)
     [SerializeField] private long _currentBalance = 0;
+    [SerializeField] public bool development = false;
 
     [Header("Phase Configuration")]
+    [Expandable, SerializeField] private PhasesConfigDatabase _phasesConfigDatabase;
 
-    // Konfigurasi dari setiap phase.
-    // Karena game secara desain terdapat 4 phase, phase pertama, kedua, ketiga dan final,
-    // maka otomatis dibuat empat PhaseConfig.
-    [Expandable] [SerializeField] private PhasesConfigDatabase _phasesConfigDatabase;
-
-    // Nilai yang mendefinisikan apakah game over (kalah) atau tidak
-    // Secara default tertulis false saat player pertama kali bermain gamenya.
     private bool _isGameOver = false;
-
-    // Nilai yang mendefinisikan apakah gamenya sedang dipause atau tidak
-    // Secara default tertulis false saat player pertama kali bermain gamenya.
-    // Karena gak mungkin baru main langsung dipause oleh sistem.
     private bool _isPaused = false;
 
-    // Sebuah variabel yang dapat dimasuki oleh suatu fungsi,
-    // variabel ini dapat mengatur bagaimana return type dan parameter dari fungsi tersebut.
+    // ======================================================
+    // Save Data (NEW)
+    // ======================================================
+
+    /// <summary>
+    /// Menyimpan referensi ke objek SaveDataNew yang sedang dimuat/digunakan.
+    /// Dapat diakses oleh komponen lain untuk membaca/memanipulasi data save secara langsung.
+    /// </summary>
+    private SaveDataNew _currentSaveData;
+
+    /// <summary>
+    /// Properti untuk mengakses data save saat ini. 
+    /// Jika null, akan dibuat baru secara otomatis.
+    /// </summary>
+    public SaveDataNew CurrentSaveData
+    {
+        get
+        {
+            if (_currentSaveData == null)
+            {
+                // Coba muat dari file, jika tidak ada buat baru
+                _currentSaveData = SaveManager.Instance.LoadGameNew() ?? SaveManager.Instance.CreateNewSave();
+            }
+            return _currentSaveData;
+        }
+        private set
+        {
+            _currentSaveData = value;
+        }
+    }
+
+    // ======================================================
+    // Events
+    // ======================================================
+
     public delegate void OnGameStateChanged();
+    public delegate void DialogStartedHandler(Customer customer);
 
-    // Sebuah variabel event yang dapat diakses oleh class lainya,
-    // class lainya yang mengakses variabel ini dapat mengaitkannya pada suatu fungsi di class tersebut.
-    // Dan ketika variabel event disini ditrigger, OnPhaseChanged?.Invoke()
-    // fungsi yang dikaitkan dengan variabel event ini akan dijalankan.
+    public event OnGameStateChanged OnPhaseChanged;
+    public event OnGameStateChanged OnDayChanged;
+    public event OnGameStateChanged OnBalanceChanged;
+    public event OnGameStateChanged OnGameOver;
+    public event OnGameStateChanged OnPauseGame;
+    public event DialogStartedHandler OnDialogStarted;
 
-    public event OnGameStateChanged OnPhaseChanged;         // Publisher Phase
-    public event OnGameStateChanged OnDayChanged;           // Publisher Day
-    public event OnGameStateChanged OnBalanceChanged;       // Publisher Money
-    public event OnGameStateChanged OnGameOver;             // Publisher GameOver
-    public event OnGameStateChanged OnPauseGame;            // Publisher Pause
-
-    // ====================================================== //
-
-    // Getter Properties
+    // ======================================================
+    // Properties
+    // ======================================================
 
     public int CurrentPhase => _currentPhase;
-    public int CurentDay => _currentDay;
+    public int CurrentDay => _currentDay;
     public long CurrentBalance => _currentBalance;
-    public string PhaseName => _phasesConfigDatabase.phaseConfigs[_currentPhase - 1].phaseName.ToString();
-    public string DayName => _phasesConfigDatabase.GetDayName(_currentDay);
     public bool IsGameOver => _isGameOver;
-    public bool IsPause => _isPaused;
+    public bool IsPaused => _isPaused; // Perbaikan: IsPause → IsPaused
     public PhasesConfigDatabase PhasesConfigDatabase => _phasesConfigDatabase;
-    public bool IsGamePlay => !(TimeManager.Instance.IsDayEnded);
+    public bool IsGamePlay => !(TimeManager.Instance?.IsDayEnded ?? true);
+    public string SceneName => _state.ToString();
 
-    // ====================================================== //
+    // ======================================================
+    // Lifecycle
+    // ======================================================
 
     protected override void Awake()
     {
         base.Awake();
-
         InitializePhasesConfig();
     }
 
     private void Start()
     {
-        AudioManager.Instance.PlayBGMName("satu");
+        AudioManager.Instance?.PlayBGMName("satu");
     }
 
-    // ====================================================== /
+    // ======================================================
+    // Inisialisasi
+    // ======================================================
 
     private void InitializePhasesConfig()
     {
         if (_phasesConfigDatabase == null)
         {
             _phasesConfigDatabase = ScriptableObject.CreateInstance<PhasesConfigDatabase>();
-
             _phasesConfigDatabase.phaseConfigs = PhasesConfigDefault.phaseConfigs;
+            Debug.LogWarning("GameManager : PhasesConfigDatabase dibuat secara default.");
         }
-    }
-
-    /// <summary>
-    /// Fungsi global untuk berpindah antar scene di dalam game.
-    /// </summary>
-    /// <param name="gs">Game State didalam game pada enum GameState</param>
-    /// <param name="isTransition">Ingin menggunakan transisi?, Default = true</param>
-    /// <param name="transitionDuration">Lama transisi antar scene, default = 1s</param>
-    /// <param name="delayTransition">Lama loading screen, default = 1s</param>
-    /// <param name="delayToTransition">Delay sebelum transisi, default = 0s</param>
-    public void LoadGameScene(GameState gs, bool isTransition = true, float transitionDuration = 1f, float delayTransition = 1f, float delayToTransition = 0f, string sceneBGM = "", bool isBGMFadeOut = false)
-    {
-        // Menjalankan perintah berdasarakan parameter dimasukkan
-        switch (gs)
-        {
-            // Pindah atau masuk ke main menu
-            case GameState.MainMenu:
-
-                // Jika tidak ingin ada transisi
-                if (!isTransition)
-                {
-                    SceneManager.LoadScene("00_MainMenu");
-                    break;
-                }
-
-                SceneTransitionManager.Instance.LoadScene("00_MainMenu", transitionDuration: transitionDuration, delayTransition: delayTransition, delayToTransition: delayToTransition);
-             
-                break;
-
-            case GameState.CutScene:
-                // Jika tidak ingin ada transisi
-                if (!isTransition)
-                {
-                    SceneManager.LoadScene("01_CutScene");
-                    break;
-                }
-
-                SceneTransitionManager.Instance.LoadScene("01_CutScene", transitionDuration: transitionDuration, delayTransition: delayTransition, delayToTransition: delayToTransition);
-                break;
-
-            case GameState.Lobby:
-                // Jika tidak ingin ada transisi
-                if (!isTransition)
-                {
-                    SceneManager.LoadScene("02_Lobby");
-                    break;
-                }
-
-                SceneTransitionManager.Instance.LoadScene("02_Lobby", transitionDuration: transitionDuration, delayTransition: delayTransition, delayToTransition: delayToTransition);
-                break;
-
-            case GameState.Dialog:
-                // Jika tidak ingin ada transisi
-                if (!isTransition)
-                {
-                    SceneManager.LoadScene("03_Dialog");
-                    break;
-                }
-
-                SceneTransitionManager.Instance.LoadScene("03_Dialog", transitionDuration: transitionDuration,delayTransition: delayTransition,delayToTransition: delayToTransition);
-                break;
-
-            case GameState.ChoosingFabric:
-                if (!isTransition)
-                {
-                    SceneManager.LoadScene("04_ChoosingFabric");
-                    break;
-                }
-
-                SceneTransitionManager.Instance.LoadScene("04_ChoosingFabric", transitionDuration: transitionDuration, delayTransition: delayTransition, delayToTransition: delayToTransition);
-                break;
-
-            case GameState.Drawing:
-                if (!isTransition)
-                {
-                    SceneManager.LoadScene("05_Drawing");
-                    break;
-                }
-
-                SceneTransitionManager.Instance.LoadScene("05_Drawing", transitionDuration: transitionDuration, delayTransition: delayTransition, delayToTransition: delayToTransition);
-                break;
-
-            case GameState.Boiling:
-                if (!isTransition)
-                {
-                    SceneManager.LoadScene("07_Boiling");
-                    break;
-                }
-
-                SceneTransitionManager.Instance.LoadScene("07_Boiling", transitionDuration: transitionDuration, delayTransition: delayTransition, delayToTransition: delayToTransition);
-                break;
-
-            case GameState.Drying:
-                if (!isTransition)
-                {
-                    SceneManager.LoadScene("08_Drying");
-                    break;
-                }
-
-                SceneTransitionManager.Instance.LoadScene("08_Drying", transitionDuration: transitionDuration, delayTransition: delayTransition, delayToTransition: delayToTransition);
-                break;
-        }
-
-        if (sceneBGM != "") AudioManager.Instance.PlayBGMName(BgmName: sceneBGM, isFadeOut: isBGMFadeOut);
-
-        else if (sceneBGM == "" && isBGMFadeOut == true) AudioManager.Instance.StopBGM(isBGMFadeOut);
-    }
-
-    public void CutScene()
-    {
-        // Load Scene CutScene
-        LoadGameScene(GameState.CutScene);
-    }
-
-    // Play A Game
-    public void Play()
-    {
-        InitializeCurrentPhaseAndDay();
-
-        // Pada phase yang dimulai, kita memulai dari hari pertama pada setiap phase
-        _currentDay = PhasesConfigDatabase.GetPhaseStartDay(_currentPhase);
-
-        // Load Scene Lobby
-        LoadGameScene(GameState.Lobby, sceneBGM: "dua" ,isBGMFadeOut: true);
-
-        // TimeManager Mulai Waktu Permainan
-        TimeManager.Instance.HandleDayStart();
-
-        // CustomerManager mereset variabel customer untuk memulai hari yang baru
-        // Serta dapat melakukan spawning
-        CustomerManager.Instance.StartSpawning();
-
-    }
-
-    // Quit A Game
-    public void Quit()
-    {
-        base.OnApplicationQuit();
-
-        Debug.Log("Game is Quit");
-
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-               Application.Quit();
-#endif
-    }
-
-    // Exit a Game
-    public void Exit()
-    {
-        LoadGameScene(GameState.MainMenu, sceneBGM: "satu", isBGMFadeOut: true);
-
-        TimeManager.Instance.HandleDayEnd();
-
-        CustomerManager.Instance.StopSpawning();
-
-        SaveManager.Instance.SaveGame(CurrentPhase, CurentDay, CurrentBalance);
     }
 
     public void InitializeCurrentPhaseAndDay()
     {
-        // Jika player belum pernah bermain, maka inisiasikan permainan baru
-        if (SaveManager.Instance.HasSave())
-        {
-            // Gunakan data permainan lama
-            LoadGameData();
-        }
-
+        if (SaveManager.Instance.HasSaveNew())
+            LoadGameDataNew();
+        else if (SaveManager.Instance.HasSaveLegacy())
+            LoadGameDataLegacy();
         else
-        {
             InitializeNewGame();
-        }
     }
 
-    /// <summary>
-    /// Menginisiasi game yang baru dengan mengatur variabel GameManager
-    /// </summary>
     private void InitializeNewGame()
     {
-        // Pertama kali main, masih phase ke-1
         _currentPhase = 1;
-
-        // Pertama kali main, masih day ke-1
         _currentDay = 1;
-
-        // Pertama kali main, uang masih Rp.0
         _currentBalance = 0;
-
-        // Pertama kali main, gamenya belum selesai
         _isGameOver = false;
-
-        // Pertama kali main, gamenya tidak pause
         _isPaused = false;
 
-        // Monitoring Purpose, Console Log dari data inisiasi game,
-        Debug.Log($"GameManager : Game dimulai pada phase/fase ke-{_currentPhase}. Dan day/hari ke-{_currentDay}. Dan dengan jumlah uang sebanyak Rp.{_currentBalance}");
+        // Buat save data baru dan simpan referensi
+        _currentSaveData = SaveManager.Instance.CreateNewSave();
+
+        Debug.Log($"GameManager : Game baru dimulai pada Phase {_currentPhase}, Day {_currentDay}, Balance {_currentBalance}");
     }
 
-    /// <summary>
-    /// Ketika sebelumnya player sudah pernah bermain, dan ingin melanjutkan,
-    /// Maka load data game sebelumnya, jadi gak perlu ngulang dari awal.
-    /// </summary>
-    private void LoadGameData()
+    private void LoadGameDataLegacy()
     {
         SaveData saveData = SaveManager.Instance.LoadGame();
-
         if (saveData != null)
         {
             _currentPhase = saveData.phase;
@@ -334,10 +160,15 @@ public class GameManager : Singleton<GameManager>
             _isGameOver = false;
             _isPaused = false;
 
-            Debug.Log($"GameManager : Load Previous Gameplay, with Phase - {saveData.phase}, on Day - {saveData.day}, and Balance Rp.{saveData.balance}");
-        } else
+            // Konversi legacy ke new? Kita bisa buat SaveDataNew dari data legacy jika diperlukan
+            // Untuk saat ini, kita tetap gunakan legacy, tapi kita set _currentSaveData = null
+            _currentSaveData = null;
+
+            Debug.Log($"GameManager : Load legacy sukses. Phase {_currentPhase}, Day {_currentDay}, Balance {_currentBalance}");
+        }
+        else
         {
-            Debug.LogWarning("GameManager [LoadGameData] : Can't load data Savedata, 'cause saveData is null. We initialize new game.");
+            Debug.LogWarning("GameManager : Gagal load legacy, memulai game baru.");
             InitializeNewGame();
         }
     }
@@ -345,340 +176,366 @@ public class GameManager : Singleton<GameManager>
     public void LoadGameDataNew()
     {
         SaveDataNew saveData = SaveManager.Instance.LoadGameNew();
-
         if (saveData != null)
         {
-            // SaveDataNew menggunakan index (0,1,2,...)
-            _currentPhase = saveData.phaseIndex + 1;
+            _currentSaveData = saveData; // Simpan referensi
 
-            PhaseSaveData currentPhase =
-                saveData.phaseSaveDatas[saveData.phaseIndex];
+            _currentPhase = saveData.phaseIndex + 1; // 0-based → 1-based
 
-            // Day juga menggunakan index (0,1,2,...)
-            _currentDay = _phasesConfigDatabase.GetPhaseStartDay(_currentPhase)
-                        + currentPhase.dayIndex;
+            PhaseSaveData currentPhaseSave = saveData.CurrentPhase;
+            if (currentPhaseSave != null)
+            {
+                int phaseStartDay = GetPhaseStartDay(_currentPhase);
+                _currentDay = phaseStartDay + currentPhaseSave.dayIndex;
 
-            DaySaveData currentDay =
-                currentPhase.daySaveDatas[currentPhase.dayIndex];
-
-            _currentBalance = (long)currentDay.balance;
+                DaySaveData currentDaySave = (currentPhaseSave.dayIndex >= 0 && currentPhaseSave.dayIndex < currentPhaseSave.daySaveDatas.Count)
+                    ? currentPhaseSave.daySaveDatas[currentPhaseSave.dayIndex]
+                    : null;
+                if (currentDaySave != null)
+                    _currentBalance = currentDaySave.balance;
+                else
+                    _currentBalance = 0;
+            }
+            else
+            {
+                _currentDay = 1;
+                _currentBalance = 0;
+            }
 
             _isGameOver = false;
             _isPaused = false;
-
-            Debug.Log(
-                $"GameManager : Load Previous Gameplay, " +
-                $"Phase {_currentPhase} (Index {saveData.phaseIndex}), " +
-                $"Day {_currentDay} (Index {currentPhase.dayIndex}), " +
-                $"Balance Rp.{_currentBalance}"
-            );
+            Debug.Log($"GameManager : Load SaveDataNew sukses. Phase {_currentPhase}, Day {_currentDay}, Balance {_currentBalance}");
         }
         else
         {
-            Debug.LogWarning("GameManager [LoadGameData] : SaveDataNew tidak ditemukan. Membuat game baru.");
-
+            Debug.LogWarning("GameManager : SaveDataNew tidak ditemukan, memulai game baru.");
             InitializeNewGame();
         }
     }
 
+    // ======================================================
+    // Save
+    // ======================================================
+
     /// <summary>
-    /// Fungsi untuk menambahkan uang pemain
+    /// Menyimpan data game saat ini ke format baru (<see cref="SaveDataNew"/>).
     /// </summary>
-    /// <param name="balance">Jumlah uang yang ingin ditambahkan</param>
-    public void AddBalance(long balance)
+    public void SaveGameData()
     {
-        // Menambahkan _currentBalance dengan nilai balance
-        _currentBalance += balance;
+        // Pastikan _currentSaveData tidak null
+        if (_currentSaveData == null)
+        {
+            _currentSaveData = SaveManager.Instance.CreateNewSave();
+        }
 
-        // Mentrigger publisher Balance (OnBalanceChanged)
+        // Update posisi fase dan hari
+        _currentSaveData.phaseIndex = _currentPhase - 1;
+
+        PhaseSaveData phaseSave = _currentSaveData.GetPhaseSave(_currentSaveData.phaseIndex);
+        if (phaseSave != null)
+        {
+            int phaseStartDay = GetPhaseStartDay(_currentPhase);
+            int dayIndexInPhase = _currentDay - phaseStartDay;
+            phaseSave.dayIndex = Mathf.Clamp(dayIndexInPhase, 0, phaseSave.daySaveDatas.Count - 1);
+
+            DaySaveData daySave = phaseSave.daySaveDatas[phaseSave.dayIndex];
+            if (daySave != null)
+            {
+                daySave.balance = _currentBalance;
+                daySave.timestamp = new SaveTime(); // Menggunakan konstruktor Time()
+                // customerServed bisa diupdate dari CustomerManager jika diperlukan
+            }
+        }
+
+        SaveManager.Instance.SaveGameNew(_currentSaveData);
+        Debug.Log($"GameManager : Data game disimpan. Phase {_currentPhase}, Day {_currentDay}, Balance {_currentBalance}");
+    }
+
+    // ======================================================
+    // Manipulasi Data
+    // ======================================================
+
+    public void AddBalance(long amount)
+    {
+        _currentBalance += amount;
         OnBalanceChanged?.Invoke();
-
-        // Update data save (local) pemain
         SaveGameData();
     }
 
-    public void SubstractBalance(long balance)
+    public void SubtractBalance(long amount)
     {
-        // Mengurangi _currentBalance dengan nilai balance
-        _currentBalance = Mathf.Max(0, (int)(_currentBalance - balance));
-
-        // Mentrigger publisher Balance (OnBalanceChanged)
+        _currentBalance = Math.Max(0, _currentBalance - amount);
         OnBalanceChanged?.Invoke();
-
-        // Update data save (local) pemain
         SaveGameData();
     }
 
-    /// <summary>
-    /// Fungsi untuk melanjutkan hari selanjutnya
-    /// </summary>
     public void NextDay()
     {
         _currentDay++;
+        if (IsPhaseEnd()) NextPhase();
 
-        // Jika hari esok merupakan phase baru,
-        // maka lanjutkan ke phase selanjutnya.
-        if (IsPhaseEnd())
-        {
-            NextPhase();
-        }
-
-        // Trigger publisher OnDayChanged
         OnDayChanged?.Invoke();
 
-        // Update data save (local) pemain
+        // Setelah fase terakhir selesai, game berakhir; jangan memulai hari baru.
+        if (_isGameOver) return;
+
         SaveGameData();
-
-        // Play Gamenya
         Play();
-
-        // Monitoring, Console Log, informasi hari apa ini dan sudah phase keberapa
-        Debug.Log($"GameManager : Melanjutkan ke hari selanjutnya. Sekarang phase/fase ke-{-_currentPhase}, dan pada hari ke-{_currentDay}");
+        Debug.Log($"GameManager : Pindah ke hari {_currentDay} di Phase {_currentPhase}");
     }
 
-    /// <summary>
-    /// Melanjutkan ke phase keselanjutnya, tetapi jika phase selanjutnya sudah selesai, maka game over
-    /// </summary>
     public void NextPhase()
     {
-        // Jika phase sekarang (_currentPhase) masih dibawah jumlah phase yang ada digame (misal masih phase ke-1),
-        // jumlah phase di dalam game ini berjumlah 4 (dapat disesuikan kembali)
-        // Maka lanjutkan ke phase selanjutnya dan update datanya.
-        if (_currentPhase < 4)
+        int totalPhase = GetTotalPhase();
+        if (_currentPhase < totalPhase)
         {
-            // Tambahkan phasenya
             _currentPhase++;
-
-            // Jadikan nilai hari, pada hari pertama pada phase tersebut.
-            // Maksudnya jika pada phase ini (misal phase ke-3),
-            // awal dari hari dari phase ini yaitu x (awal hari dari phase ke-3 yaitu hari ke-7),
-            // Maka jadikan nilai hari menjadi nilai x tersebut (hari ke-7)
-            _currentDay = _phasesConfigDatabase.GetPhaseStartDay(_currentPhase);
-
-            // Trigger Publisher OnPhaseChanged
+            _currentDay = GetPhaseStartDay(_currentPhase);
             OnPhaseChanged?.Invoke();
-
-            // Update data save (local) pemain
             SaveGameData();
-
-            // Monitoring, Console log, memberikan informasi phase dan day keberapa
-            Debug.Log($"GameManager : Melanjutkan ke Phase selanjutnya yaitu phase ke-{_currentPhase} dan pada hari ke-{_currentDay}");
+            Debug.Log($"GameManager : Pindah ke Phase {_currentPhase}, Day {_currentDay}");
         }
-
-        // Tetapi jika phase sekarang (_currentPhase) ditambahkan 1,
-        // menjadi tidak lebih kecil dari dibawah jumlah phase yang ada digame,
-        // jumlah phase di dalam game ini berjumlah 4 (dapat disesuikan kembali);
-        // Maka game sudah selesai, atau gameover.
-
-        else if (_currentPhase + 1 >= 4)
+        else
         {
-            // Mengubah nilai _isGameover menjadi true, yang berarti game sudah gameover
             _isGameOver = true;
-
-            // Trigger publisher OnGameOver
             OnGameOver?.Invoke();
-
-            // Monitoring, Console log, memberikan informasi bahwa game sudah game over
-            Debug.Log($"GameManager : Game Ending, Game Over is {_isGameOver.ToString()}");
+            Debug.Log("GameManager : Game selesai! Semua fase telah dilalui.");
         }
     }
 
-    /// <summary>
-    /// Jika player gagal menyelesaikan target pada phase itu,
-    /// player dapat mereset lagi harinya menuju hari pertama di phase tersebut.
-    /// </summary>
     public void ResetToPhaseStart()
     {
-        // Ubah hari ini, menjadi hari pertama pada scene ini
-        _currentDay = _phasesConfigDatabase.GetPhaseStartDay(_currentPhase);
-
-        // Trigger publisher OnDayChanged
-        OnDayChanged?.Invoke();
-
-        // reset status game over menjadi false (belum gagal)
+        _currentDay = GetPhaseStartDay(_currentPhase);
         _isGameOver = false;
-
-        // Trigger publisher OnGameOver
-        OnGameOver?.Invoke();
-
-        // Simpan perubahan data pemains
+        OnDayChanged?.Invoke();
         SaveGameData();
-
-        // Monitoring, Console Log
-        Debug.Log($"GameManager : Reset Day To Start Day at Phase {_currentPhase}");
+        Debug.Log($"GameManager : Reset ke awal Phase {_currentPhase}, Day {_currentDay}");
     }
 
-    /// <summary>
-    /// Jika player gagal mencapai target pada phase tersebut, dia akan game over
-    /// </summary>
     public void GameOver()
     {
-        // Game over is true
         _isGameOver = true;
-
-        // trigger publisher OnGameOver
         OnGameOver?.Invoke();
-
-        // Monitoring, Console Log
-        Debug.Log($"GameManager : Target Phase {_currentPhase} tidak terpenuhi. Player Gagal.");
+        Debug.Log($"GameManager : Game Over di Phase {_currentPhase}");
     }
 
-    public void SaveGameData()
-    {
-        SaveManager.Instance.SaveGame(currentPhase: _currentPhase, currentDay: _currentDay, currentBalance: _currentBalance);
-    }
+    // ======================================================
+    // Pause / Resume
+    // ======================================================
 
-    /// <summary>
-    /// Mengetahui apakah hari yang dilanjutkan ini telah melewati phase sebelumnya
-    /// </summary>
-    /// <returns>Jika true, hari yang dilanjutkan ini, telah melewati phase sebelumnya</returns>
-    private bool IsPhaseEnd()
-    {
-        int phaseEndDays = _phasesConfigDatabase.GetPhaseEndDay(_currentPhase);
-
-        return _currentDay > phaseEndDays;
-    }
-
-    /// <summary>
-    /// Fungsi untuk pause game
-    /// </summary>
     public void Pause()
     {
-        // Seharusnya ada logika pemberhentian waktu yang berjalan dan menghentikan segala logika fisika
-        // saat game di pause, tapi belum dikembangkan saja.
-
-        // Pemberhentian waktu didalam game
-        TimeManager.Instance.PauseGameTime();
-
-        CustomerManager.Instance.StopSpawning();
-
-        // Game dipause
+        TimeManager.Instance?.PauseGameTime();
+        CustomerManager.Instance?.StopSpawning();
         _isPaused = true;
-
-        // Trigger publisher onPauseGame
         OnPauseGame?.Invoke();
+        Debug.Log("GameManager : Game dijeda.");
+    }
 
-        // Monitoring console log, bahwa game sedang dipause
-        Debug.Log("GameManager - TimeManager : Game di pause.");
+    public void Resume()
+    {
+        TimeManager.Instance?.ResumeGameTime();
+        CustomerManager.Instance?.StartSpawning(true);
+        _isPaused = false;
+        OnPauseGame?.Invoke();
+        Debug.Log("GameManager : Game dilanjutkan.");
+    }
+
+    public void TogglePause()
+    {
+        if (_isPaused) Resume();
+        else Pause();
+    }
+
+    // ======================================================
+    // Navigasi Scene
+    // ======================================================
+
+    public void LoadGameScene(
+        GameState gs,
+        bool isTransition = true,
+        float transitionDuration = 1f,
+        float delayTransition = 1f,
+        float delayToTransition = 0f,
+        string sceneBGM = "",
+        bool isBGMFadeOut = false)
+    {
+        string sceneName = GetSceneNameFromState(gs);
+        if (string.IsNullOrEmpty(sceneName))
+        {
+            Debug.LogError($"GameManager : Scene untuk state {gs} tidak ditemukan.");
+            return;
+        }
+
+        if (!isTransition)
+            SceneManager.LoadScene(sceneName);
+        else
+            SceneTransitionManager.Instance?.LoadScene(sceneName, transitionDuration, delayTransition, delayToTransition);
+
+        if (!string.IsNullOrEmpty(sceneBGM))
+            AudioManager.Instance?.PlayBGMName(sceneBGM, isFadeOut: isBGMFadeOut);
+        else if (isBGMFadeOut)
+            AudioManager.Instance?.StopBGM(true);
+
+        State = gs;
+    }
+
+    private string GetSceneNameFromState(GameState gs)
+    {
+        return gs switch
+        {
+            GameState.MainMenu => "00_MainMenu",
+            GameState.CutScene => "01_CutScene",
+            GameState.Lobby => "02_Lobby",
+            GameState.Dialog => "03_Dialog",
+            GameState.ChoosingFabric => "04_ChoosingFabric",
+            GameState.Drawing => "05_Drawing",
+            GameState.Boiling => "07_Boiling",
+            GameState.Drying => "08_Drying",
+            _ => null
+        };
+    }
+
+    // ======================================================
+    // Shortcut Navigasi
+    // ======================================================
+
+    public void CutScene() => LoadGameScene(GameState.CutScene);
+
+    public void Play()
+    {
+        // Hari yang dimuat dari save dipakai apa adanya (GDD 1.1: hari berjalan diulang dari awal, bukan dari awal phase).
+        InitializeCurrentPhaseAndDay();
+        LoadGameScene(GameState.Lobby, sceneBGM: "dua", isBGMFadeOut: true);
+        TimeManager.Instance?.HandleDayStart();
+        CustomerManager.Instance?.StartSpawning();
+    }
+
+    public void Exit()
+    {
+        SaveGameData();
+        LoadGameScene(GameState.MainMenu, sceneBGM: "satu", isBGMFadeOut: true);
+        TimeManager.Instance?.HandleDayEnd();
+        CustomerManager.Instance?.StopSpawning();
+    }
+
+    public void Quit()
+    {
+        Debug.Log("Game is Quit");
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     /// <summary>
-    /// Fungsi untuk resume atau melanjutkan game yang di pause
+    /// Memproses dialog dengan customer selanjutnya.
+    /// Menampilkan UI dialog jika ada customer yang bisa dilayani.
     /// </summary>
-    public void Resume()
+    /// <returns>True jika ada customer dan dialog ditampilkan, false jika tidak ada customer.</returns>
+    public bool NextDialog()
     {
-        // Seharusnya ada melanjutkan logika pemberhentian waktu yang berjalan dan melanjutkan segala logika fisika
-        // saat game sudah di resume kembali, tapi belum dikembangkan saja.
+        // Cek apakah ada customer saat ini
+        if (CustomerManager.Instance.CustomerCurrent == null)
+        {
+            // Ambil customer berikutnya dari antrian
+            Customer currentCustomer = CustomerManager.Instance.GetNextCustomer();
 
-        // Melanjutkan waktu didalam game
-        TimeManager.Instance.ResumeGameTime();
+            // Jika ada customer, tampilkan dialog
+            if (currentCustomer != null)
+            {
+                // Trigger event atau langsung panggil UI melalui LobbyUIManager
+                // Karena dialog ditangani di LobbyUIManager, kita bisa memicu event
+                OnDialogStarted?.Invoke(currentCustomer);
 
-        CustomerManager.Instance.StartSpawning(IsResume: true);
+                // Atau bisa langsung memanggil metode di LobbyUIManager jika ada referensi
+                // LobbyUIManager.Instance?.ShowDialog(currentCustomer);
 
-        // Game di resume
-        _isPaused = false;
-
-        // trigger publisher OnPauseGame
-        OnPauseGame?.Invoke();
-
-        // Monitoring console log, bahwa game sudah di resume.
-        Debug.Log("GameManager - TimeManager : Game di resume.");
+                return true;
+            }
+            else
+            {
+                Debug.Log("GameManager : Tidak ada customer dalam antrian.");
+                return false;
+            }
+        }
+        else
+        {
+            // Jika sudah ada customer yang sedang dilayani
+            Debug.Log("GameManager : Customer sedang dilayani.");
+            return false;
+        }
     }
+    public void NextFabric() => LoadGameScene(GameState.ChoosingFabric, transitionDuration: 0.25f, delayToTransition: 0.25f);
+    public void NextBatik() => LoadGameScene(GameState.Drawing, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
+    public void NextRebus() => LoadGameScene(GameState.Boiling, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
+    public void NextDrying() => LoadGameScene(GameState.Drying, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
+    public void NextResult() => LoadGameScene(GameState.Lobby, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
 
-    // Mengambil fungsi TogglePause pada timeManager untuk GameManager,
-    // Untuk dipanggil oleh object lainnya melalui gameManager.
-    public void TogglePause()
-    {
-        TimeManager.Instance.TogglePause();
-    }
+    // ======================================================
+    // Helper untuk Konfigurasi
+    // ======================================================
 
-    public DayConfig GetCurrentDayConfig()
-    {
-        return _phasesConfigDatabase.GetDayConfig(_currentDay);
-    }
+    public DayConfig GetCurrentDayConfig() => _phasesConfigDatabase?.GetDayConfig(_currentDay);
 
     public DayConfig GetNextDayConfig()
     {
-        if (CurentDay + 1 > _phasesConfigDatabase.GetDayLenghth())
+        int nextDay = _currentDay + 1;
+        if (nextDay > GetTotalDay())
         {
-            Debug.LogWarning("GameManager [GetNextDayConfig] : Tidak dapat memberikan data day config di hari selanjutnya, karena ini adalah hari terakhir didalam game");
+            Debug.LogWarning("GameManager : Tidak ada hari berikutnya.");
             return null;
         }
-
-        return _phasesConfigDatabase.GetDayConfig(_currentDay + 1);
+        return _phasesConfigDatabase?.GetDayConfig(nextDay);
     }
 
     public PhaseConfig GetNextPhaseConfig()
     {
-        if (_currentPhase < PhasesConfigDatabase.phaseConfigs.Length && _currentPhase > 0)
+        int nextPhase = _currentPhase + 1;
+        if (nextPhase <= GetTotalPhase())
+            return _phasesConfigDatabase?.phaseConfigs[nextPhase - 1];
+        return null;
+    }
+
+    public DayConfig GetDayConfigByIndex(int dayIndex)
+    {
+        if (dayIndex < 1 || dayIndex > GetTotalDay())
         {
-            return PhasesConfigDatabase.phaseConfigs[_currentPhase];
-        }
-        else
-        {
+            Debug.LogWarning($"GameManager : Indeks hari {dayIndex} tidak valid.");
             return null;
         }
+        return _phasesConfigDatabase?.GetDayConfig(dayIndex);
     }
 
-    public DayConfig GetDayConfigIndex (int index)
+    // ======================================================
+    // Perhitungan Internal
+    // ======================================================
+
+    private int GetTotalPhase() => _phasesConfigDatabase?.phaseConfigs.Length ?? 0;
+
+    private int GetTotalDay()
     {
-        if (index < 1 || index > _phasesConfigDatabase.GetDayLenghth())
-        {
-            Debug.LogWarning($"GameManager [GetNextDayConfig] : Tidak dapat memberikan data day config di hari ke-{index} karena bernilai invalid. Bisa jadi karena lebih kecil dari 1 atau bernilai negatif, atau memang hari ke-{index} lebih besar dari pada jumlah hari yang didaftarkan didalam database.");
-            return null;
-        }
-
-        return _phasesConfigDatabase.GetDayConfig(index);
+        if (_phasesConfigDatabase == null) return 0;
+        int total = 0;
+        foreach (var phase in _phasesConfigDatabase.phaseConfigs)
+            total += phase.phaseDay.Length;
+        return total;
     }
 
-    /// <summary>
-    /// Fungsi ini menjalankan phase dialog setelag lobby saat customer akan dilayani
-    /// </summary>
-    /// <returns>Apakah berhasil</returns>
-    public bool NextDialog()
+    private int GetPhaseStartDay(int phaseIndex)
     {
-        if (CustomerManager.Instance.CustomerCurrent == null)
-        {
-            // Dan dia harus bisa trigger next custommer di customer manager
-            Customer currentCustomer = CustomerManager.Instance.GetNextCustomer();
-
-            // jika current customer ada, maka mari kita pindahkan scene ini menjadi scene dialog
-            if (currentCustomer != null)
-            {
-                // Pada bagian menjalan komponen dialog yang timpa dengan lobby
-                // GameManager.Instance.LoadGameScene(GameState.Dialog);
-
-                return true;
-            }
-
-            else { return false; }
-        }
-
-        return false;
+        if (_phasesConfigDatabase == null) return 1;
+        int start = 1;
+        for (int i = 0; i < phaseIndex - 1; i++)
+            start += _phasesConfigDatabase.phaseConfigs[i].phaseDay.Length;
+        return start;
     }
 
-    public void NextFabric()
+    private int GetPhaseEndDay(int phaseIndex)
     {
-        LoadGameScene(GameState.ChoosingFabric, transitionDuration: 0.25f, delayToTransition: 0.25f);
+        return GetPhaseStartDay(phaseIndex) + _phasesConfigDatabase.phaseConfigs[phaseIndex - 1].phaseDay.Length - 1;
     }
 
-    public void NextBatik()
-    {
-        LoadGameScene(GameState.Drawing, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
-    }
-
-    public void NextRebus()
-    {
-        LoadGameScene(GameState.Boiling, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
-    }
-
-    public void NextDrying()
-    {
-        LoadGameScene(GameState.Drying, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
-    }
-
-    public void NextResult()
-    {
-        LoadGameScene(GameState.Lobby, delayTransition: 0.25f, transitionDuration: 0.25f, delayToTransition: 1f);
-    }
+    private bool IsPhaseEnd() => _currentDay > GetPhaseEndDay(_currentPhase);
 }

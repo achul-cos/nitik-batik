@@ -48,6 +48,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0
       daySpecialCustomers: []
+      firstCustomerSpawn: 6
     - dayName: Hari Kedua
       dayWeather: 0
       dayCustomers: 10
@@ -81,6 +82,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     - dayName: Hari Ketiga
       dayWeather: 0
       dayCustomers: 15
@@ -114,6 +116,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     phaseTarget:
     - targetName: Customers
       targetValue: 20
@@ -163,6 +166,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     - dayName: Hari Kelima
       dayWeather: 3
       dayCustomers: 7
@@ -196,6 +200,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     - dayName: Hari Keenam
       dayWeather: 4
       dayCustomers: 5
@@ -229,6 +234,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     - dayName: Hari Ketujuh
       dayWeather: 0
       dayCustomers: 15
@@ -262,6 +268,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     phaseTarget:
     - targetName: Customers
       targetValue: 20
@@ -312,6 +319,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     - dayName: Hari Kesembilan
       dayWeather: 4
       dayCustomers: 8
@@ -345,6 +353,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0.2
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     - dayName: Hari Kesepuluh
       dayWeather: 0
       dayCustomers: 15
@@ -378,6 +387,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0.5
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     phaseTarget:
     - targetName: Customers
       targetValue: 30
@@ -432,6 +442,7 @@ MonoBehaviour:
         perfectType: 4
         perfectChance: 0.5
       daySpecialCustomers: []
+      firstCustomerSpawn: 3
     phaseTarget:
     - targetName: Customers
       targetValue: 1

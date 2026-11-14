@@ -156,7 +156,7 @@ public class CustomersDatabase : ScriptableObject
                     // wealthTypesChoosen.Add(WealthType.KAYA);
                     wealthTypesChoosen.Add(WealthType.SULTAN);
 
-                    int o = Random.Range(0, 4);
+                    int o = Random.Range(0, wealthTypesChoosen.Count);
 
                     wealthTypeChoosen = wealthTypesChoosen[o];
 

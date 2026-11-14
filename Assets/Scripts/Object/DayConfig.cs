@@ -52,6 +52,8 @@ public class DayConfig
     /// </summary>
     public SpecialCustomer[] daySpecialCustomers;
 
+    public float firstCustomerSpawn = 3.0f;
+
     public override string ToString()
     {
         StringBuilder sb = new StringBuilder();

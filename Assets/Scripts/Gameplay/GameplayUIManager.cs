@@ -108,7 +108,7 @@ public class GameplayUIManager : MonoBehaviour
     public void LoadDebugSubPanel()
     {
         PhaseConfig phaseConfig = GameManager.Instance.PhasesConfigDatabase.GetPhaseConfigByPhase(GameManager.Instance.CurrentPhase);
-        DayConfig dayConfig = GameManager.Instance.PhasesConfigDatabase.GetDayConfig(GameManager.Instance.CurentDay);
+        DayConfig dayConfig = GameManager.Instance.PhasesConfigDatabase.GetDayConfig(GameManager.Instance.CurrentDay);
 
         float totalChance = (dayConfig.dayWealthCustomersChances.FirstOrDefault(x => x.wealthType == WealthType.MISKIN)?.wealthChance ?? 0f) + (dayConfig.dayWealthCustomersChances.FirstOrDefault(x => x.wealthType == WealthType.BIASA)?.wealthChance ?? 0f) + (dayConfig.dayWealthCustomersChances.FirstOrDefault(x => x.wealthType == WealthType.SULTAN)?.wealthChance ?? 0f);
         float totalPerfect = (dayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.D)?.perfectChance ?? 0f) + (dayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.C)?.perfectChance ?? 0f) + (dayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.B)?.perfectChance ?? 0f) + (dayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.A)?.perfectChance ?? 0f) + (dayConfig.dayPerfectCustomerChances.FirstOrDefault(x => x.perfectType == PerfectType.S)?.perfectChance ?? 0f);
@@ -116,7 +116,7 @@ public class GameplayUIManager : MonoBehaviour
         _phaseNameDebug.text = $"Phase Name : {phaseConfig?.phaseName ?? "null"}";
         _phaseIndexDebug.text = $"Phase Index : {GameManager.Instance.CurrentPhase.ToString() ?? "null"}";
         _dayNameDebug.text = $"Day Name : {dayConfig?.dayName ?? "null"}";
-        _dayIndexDebug.text = $"Day Index : {GameManager.Instance.CurentDay.ToString() ?? "null"}";
+        _dayIndexDebug.text = $"Day Index : {GameManager.Instance.CurrentDay.ToString() ?? "null"}";
         _customersDayDebug.text = $"Customers Day : {dayConfig?.dayCustomers.ToString() ?? "null"}";
         _customersQueueDebug.text = $"Customers Queue : {CustomerManager.Instance.CustomerQueueCount.ToString() ?? "null"}";
         _customersServedDebug.text = $"Customers Served : {CustomerManager.Instance.CustomerServedToday.ToString() ?? "null"}";

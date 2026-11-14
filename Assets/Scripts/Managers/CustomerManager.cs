@@ -1,8 +1,9 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using NaughtyAttributes;
+using UnityEngine.UI;
 
 /// <summary>
 /// Singleton atau manager yang mengatur logika cutomer didalam game.
@@ -36,10 +37,10 @@ public class CustomerManager : Singleton<CustomerManager>
     // Customer Spawner Variable
 
     // Waktu jeda spawn antar customer
-    private float _spawnInterval = 15.0f;
+    [SerializeField] private float _spawnInterval = 15.0f;
 
     // Variasai jeda spawn antar customer
-    private float _variationSpawnInterval = 3.0f;
+    [SerializeField] private float _variationSpawnInterval = 3.0f;
 
     // Jumlah customer yang telah dispawn
     private int _customersSpawned = 0;
@@ -143,7 +144,14 @@ public class CustomerManager : Singleton<CustomerManager>
     /// </summary>
     private void Update()
     {
-        if (_isSpawning == true && GameManager.Instance.IsPause == false && GameManager.Instance.IsGamePlay == true && GameManager.Instance.IsGameOver == false && Time.time >= _nextSpawntime) SpawnCustomer();
+        if (_isSpawning == true &&
+            GameManager.Instance.IsPaused == false &&   // ← Perbaiki IsPause → IsPaused
+            GameManager.Instance.IsGamePlay == true &&
+            GameManager.Instance.IsGameOver == false &&
+            UnityEngine.Time.time >= _nextSpawntime)           // ← Gunakan UnityTime
+        {
+            SpawnCustomer();
+        }
     }
 
     // ====================================================== //
@@ -194,12 +202,12 @@ public class CustomerManager : Singleton<CustomerManager>
     /// </summary>
     /// <param name="customer">Objek customer yang dimasuki</param>
     /// <returns>Status keberhasilan memasuki customer didalam queue</returns>
-    public bool AddCustomerToQueue(Customer customer)
+    public bool AddCustomerToQueue(Customer customer, bool errorDebug = true)
     {
         // Validasi bahwa antrian customer sudah penuh atau belum
         if (_customerQueue.Count >= _customerMaxQueueSize)
         {
-            Debug.LogWarning($"CustomerManager [AddCustomerToQueue] : Tidak dapat menambahkan customer dengan ID {customer.customerId} dan namanya {customer.customerName} pada queue. Karena jumlah antrian pada {_customerQueue.Count} jumlah lebih dari sama dengan dengan maksimum antrian {_customerMaxQueueSize}");
+            if (errorDebug) Debug.LogWarning($"CustomerManager [AddCustomerToQueue] : Tidak dapat menambahkan customer dengan ID {customer.customerId} dan namanya {customer.customerName} pada queue. Karena jumlah antrian pada {_customerQueue.Count} jumlah lebih dari sama dengan dengan maksimum antrian {_customerMaxQueueSize}");
             return false;
         }
 
@@ -233,6 +241,31 @@ public class CustomerManager : Singleton<CustomerManager>
         }
 
         // Keluarkan customer pada antrian yang paling depan, dan menjadi customer yang sekarang dilayani
+        _customerCurrent = PeekCustomerAtIndex(0, isDebug: false);
+
+        // Berikan objek data customer _customercurrent sebagai customer yang dilayani
+        return _customerCurrent;
+    }
+
+    /// <summary>
+    /// Fungsi Legacy
+    /// 
+    /// Mengambil Customer paling awal didalam antrian untuk dilayani
+    /// </summary>
+    /// <returns>Customer yang paling depan antrianya</returns>
+    public Customer GetNextCustomerLegacy()
+    {
+        // Validasi bahwa antrian customer kosong atau tidak
+        // Jika kosong maka berikan log warning bahwa kosong
+        if (_customerQueue.Count == 0)
+        {
+            // Monitoring console log, bahwa antrian customer itu kosong
+            Debug.LogWarning($"CustomerManager [GetNextCustomer] : Tidak dapat memberikan customer pada customer queue, karena antrian customer kosong atau {_customerQueue.Count}.");
+
+            return null;
+        }
+
+        // Keluarkan customer pada antrian yang paling depan, dan menjadi customer yang sekarang dilayani
         _customerCurrent = _customerQueue.Dequeue();
 
         // Berikan objek data customer _customercurrent sebagai customer yang dilayani
@@ -247,6 +280,42 @@ public class CustomerManager : Singleton<CustomerManager>
         // Validasi jika customer current bernilai null,
         // maka berikan log warning belum ada current customer yang dapat diselesaikan
         if(_customerCurrent == null)
+        {
+            Debug.LogWarning("CustomerManager [FinishCurrentCustomer] : Tidak dapat menyelesaikan seni pesan memesan dengan current customer karena memang belum ada");
+        }
+
+        else if (_customerCurrent != null)
+        {
+            // Mengeluarkan customer pada antrian yang paling depan
+            _customerQueue.Dequeue();
+
+            // Menambahkan jumlah customer yang telah dilayani pada hari ini
+            _customerServedToday++;
+
+            // Trigger publsher customer arrived bahwa customer current telah selesai dilayani dan memberikan data customer yang telah dilayani
+            CustomerServed?.Invoke(_customerCurrent);
+
+            // Monitoring console log, memberitahukan bahwa customer current telah dilayani serta jumlah customer yang telah dilayani
+            Debug.Log($"CustomerManager : Telah selesai melayani customer dengan nama id {_customerCurrent.customerId} dan nama yaitu {_customerCurrent.customerName}, dengan jumlah sementara pelanggan yang telah dilayani yaitu {_customerServedToday}");
+
+            // Menghapus slot currentCustomer
+            _customerCurrent = null;
+
+            // Menghapus kain
+            curretChooseFabric = null;
+        }
+    }
+
+    /// <summary>
+    /// Fungsi Legacy
+    /// 
+    /// Menyelesaikan sesi pesan memesan currentCustomer, dan mengosongkan slot dari _currentCustomer
+    /// </summary>
+    public void FinishCurrentCustomerLegacy()
+    {
+        // Validasi jika customer current bernilai null,
+        // maka berikan log warning belum ada current customer yang dapat diselesaikan
+        if (_customerCurrent == null)
         {
             Debug.LogWarning("CustomerManager [FinishCurrentCustomer] : Tidak dapat menyelesaikan seni pesan memesan dengan current customer karena memang belum ada");
         }
@@ -283,12 +352,9 @@ public class CustomerManager : Singleton<CustomerManager>
         _customerCurrent = customer;
 
         // Monitoring console log
-        Debug.Log($"CustomerManager [SetCurrentCustomer] Log : Mengubah costumer yang sedang dilayani yang sebelumnya Customer dengan ID - {oldCurrentCustomer.customerId} dan namanya {oldCurrentCustomer.customerName}. Menjadi Customer dengan id - {_customerCurrent.customerId} dan dengan nama {_customerCurrent.customerName}");
-
-        // Menghapus oldCurrentCustomer;
-        oldCurrentCustomer = null;
-
-        return;
+        string namaLama = oldCurrentCustomer != null ? $"{oldCurrentCustomer.customerId} ({oldCurrentCustomer.customerName})" : "(tidak ada)";
+        string namaBaru = _customerCurrent != null ? $"{_customerCurrent.customerId} ({_customerCurrent.customerName})" : "(tidak ada)";
+        Debug.Log($"CustomerManager [SetCurrentCustomer] Log : Mengubah customer yang sedang dilayani dari {namaLama} menjadi {namaBaru}");
     }
 
     /// <summary>
@@ -335,14 +401,29 @@ public class CustomerManager : Singleton<CustomerManager>
         _isSpawning = true;
 
         // Memberikan waktu untuk customer selanjutnya akan datang
-        if (IsResume == false) _nextSpawntime = Mathf.Max(5f, (Time.time + GetRandomSpawnInterveal() - 7f));
-        else if (_nextSpawntime < Time.time && IsResume == true) _nextSpawntime = Time.time + GetRandomSpawnInterveal();
+        if (IsResume == false)
+        {
+            float firstCustomerSpawnTime = GameManager.Instance.GetCurrentDayConfig().firstCustomerSpawn;
+            
+            if (firstCustomerSpawnTime >= 0)
+            {
+                _nextSpawntime = UnityEngine.Time.time + firstCustomerSpawnTime;
+            }
+            else
+            {
+                _nextSpawntime = UnityEngine.Time.time + Mathf.Max(5f, (GetRandomSpawnInterveal() - 7f));
+            }
+        }
+        else if (_nextSpawntime < UnityEngine.Time.time && IsResume == true)
+        {
+            _nextSpawntime = UnityEngine.Time.time + GetRandomSpawnInterveal();
+        } 
 
         // Mengatur jumlah customer yang harus dispawn
         _customersToSpawned = _currentDayConfig.dayCustomers;
 
         // Log, memberitahu bahwa spawning dimulai
-        Debug.Log($"CustomerManager [StartSpawning] : Spawning dimulai, customer selanjutnya akan datang pada waktu {_nextSpawntime} atau {_nextSpawntime - Time.time} detik kemudian.");
+        Debug.Log($"CustomerManager [StartSpawning] : Spawning dimulai, customer selanjutnya akan datang pada waktu {_nextSpawntime} atau {_nextSpawntime - UnityEngine.Time.time} detik kemudian.");
     }
 
     /// <summary>
@@ -354,6 +435,11 @@ public class CustomerManager : Singleton<CustomerManager>
         _isSpawning = false;
 
         Debug.Log("CustomerManager [StopSpawning] : Spawning selesai atau diberhentikan.");
+    }
+
+    public void DelaySpawning(float duration)
+    {
+        if (_isSpawning == true && duration > 0f ) _nextSpawntime += duration;
     }
 
     /// <summary>
@@ -388,20 +474,19 @@ public class CustomerManager : Singleton<CustomerManager>
         // Selanjutnya customerRandom yang didapatkan, kita set menjadi currentCustomer
         // Karena AddCustomerToQueue memberikan return bool, jadi kita dapat mengetahui
         // Apakah kita berhasil menambahkan customer atau tidak.
-        bool added = AddCustomerToQueue(customerRandom);
+        bool added = AddCustomerToQueue(customerRandom, !IsQueueFull);
 
         if (added)
         {
             _customersSpawned++;
             Debug.Log($"CustomerManager [SpawnCustomer] : Berhasil mengenarate dan menambahkan customer kedalam antrian, dengan informasi customer sebagai berikut {customerRandom.customerName}");
         }
-        else Debug.LogError($"CustomerManager [SpawnCustomer] : Gagal menambahkan customer yang telah digenerate kedalam antrian dengan informasi customer {customerRandom.customerName}");
+        else if (!IsQueueFull) Debug.LogError($"CustomerManager [SpawnCustomer] : Gagal menambahkan customer yang telah digenerate kedalam antrian dengan informasi customer {customerRandom.customerName}");
 
-        // Trigger Publisher Bahwa Customer telah terspawn (datang)
-        CustomerArrived?.Invoke(customerRandom);
+        // Event CustomerArrived sudah dipicu di AddCustomerToQueue, hanya jika customer berhasil masuk antrian.
 
         // Jadwalkan untuk spawn customer selanjutnya
-        _nextSpawntime = Time.time + GetRandomSpawnInterveal();
+        _nextSpawntime = UnityEngine.Time.time + GetRandomSpawnInterveal();
     }
 
     /// <summary>

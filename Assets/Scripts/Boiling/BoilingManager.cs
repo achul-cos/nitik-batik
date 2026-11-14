@@ -95,26 +95,17 @@ public class BoilingManager : MonoBehaviour
             BoilingSlider.value = time;
 
 
-            if (time < YellowBoilingTime)
+            // Zona (kuning/hijau/merah) dinilai di tahap GDD; di sini hanya waktu habis yang ditangani.
+            if (time >= RedBoilingTime)
             {
-                Debug.Log("Status : Kuning");
-            }
-            else if (time < GreenBoilingTime)
-            {
-                Debug.Log("Status : Hijau");
-            }
-            else if (time < RedBoilingTime)
-            {
-                Debug.Log("Status : Merah");
-            }
-            else
-            {
-                Debug.Log("Boiling selesai");
-
                 isBoiling = false;
+                timerCoroutine = null;
+                time = 0;
+                BoilingSlider.value = 0;
 
                 MulaiButton.gameObject.SetActive(true);
                 StopButton.gameObject.SetActive(false);
+                fire.SetActive(false);
             }
 
 
